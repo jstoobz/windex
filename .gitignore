@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Test results (local, regenerated each run)
+test-results/
+
+# Session artifacts
+.stoobz/
+
+# Sensitive — never commit auth keys
+*.authkey
