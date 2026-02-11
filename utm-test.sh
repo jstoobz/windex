@@ -99,10 +99,14 @@ trap cleanup EXIT
 utmctl start --disposable "$VM_NAME"
 
 # ── Step 2: Wait for guest agent ─────────────────────────────────
+# utmctl exec returns exit code 0 even on failure — check stdout content
 log "Waiting for guest agent..."
 start_time=$SECONDS
+agent_ready=false
 while (( SECONDS - start_time < MAX_WAIT )); do
-    if utmctl exec "$VM_NAME" --cmd cmd.exe /c "echo ready" >/dev/null 2>&1; then
+    probe=$(utmctl exec "$VM_NAME" --cmd cmd.exe /c "echo ready" 2>/dev/null) || true
+    if [[ "$probe" == *"ready"* ]]; then
+        agent_ready=true
         break
     fi
     sleep "$POLL_INTERVAL"
@@ -110,8 +114,9 @@ while (( SECONDS - start_time < MAX_WAIT )); do
 done
 
 elapsed=$((SECONDS - start_time))
-if (( elapsed >= MAX_WAIT )); then
+if ! $agent_ready; then
     log "FAIL: Guest agent did not respond within ${MAX_WAIT}s"
+    log "$(utmctl exec "$VM_NAME" --cmd cmd.exe /c "echo test" 2>&1 || true)"
     exit 1
 fi
 log "Guest agent ready (${elapsed}s)"

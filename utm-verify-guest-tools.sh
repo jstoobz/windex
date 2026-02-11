@@ -49,12 +49,15 @@ else
     trap cleanup EXIT
 fi
 
-# Wait for guest agent
+# Wait for guest agent.
+# IMPORTANT: utmctl exec returns exit code 0 even on failure.
+# We must check stdout content to verify the agent is truly responding.
 echo "Waiting for guest agent (up to ${MAX_WAIT}s)..."
 start_time=$SECONDS
 agent_ready=false
 while (( SECONDS - start_time < MAX_WAIT )); do
-    if utmctl exec "$VM_NAME" --cmd cmd.exe /c "echo ready" >/dev/null 2>&1; then
+    probe=$(utmctl exec "$VM_NAME" --cmd cmd.exe /c "echo ready" 2>/dev/null) || true
+    if [[ "$probe" == *"ready"* ]]; then
         agent_ready=true
         break
     fi
@@ -64,41 +67,66 @@ done
 echo ""
 
 if ! $agent_ready; then
-    echo "  [FAIL] Guest agent did not respond within ${MAX_WAIT}s"
+    elapsed=$((SECONDS - start_time))
+    echo "  [FAIL] Guest agent did not respond within ${elapsed}s"
+    echo ""
+    # Show what utmctl is reporting
+    diag=$(utmctl exec "$VM_NAME" --cmd cmd.exe /c "echo test" 2>&1) || true
+    echo "  Diagnostic output: $diag"
     echo ""
     echo "  Possible causes:"
-    echo "    - QEMU Guest Agent not installed in the VM"
-    echo "    - VM still booting (try increasing MAX_WAIT)"
-    echo "    - SPICE guest tools not installed"
+    echo "    - QEMU Guest Agent (qemu-ga) not installed in the VM"
+    echo "    - SPICE guest tools were installed but qemu-ga service not running"
+    echo "    - VM QEMU settings missing virtio-serial / guest agent channel"
+    echo ""
+    echo "  To fix:"
+    echo "    1. In UTM, edit VM → QEMU → check 'QEMU Guest Agent' is enabled"
+    echo "    2. In the VM, verify qemu-ga service exists:"
+    echo "       sc query qemu-ga"
+    echo "    3. If missing, install QEMU guest agent from virtio-win ISO"
     echo ""
     exit 1
 fi
+echo "Guest agent ready ($((SECONDS - start_time))s)"
 
 echo ""
 echo "Test Results"
 echo "============================================================"
 
-# Test 1: exec — basic command
-output=$(utmctl exec "$VM_NAME" --cmd cmd.exe /c "echo hello" 2>&1) || true
-if [[ "$output" == *"hello"* ]]; then
+# Test 1: exec — basic command (check both exit code and stdout)
+output=$(utmctl exec "$VM_NAME" --cmd cmd.exe /c "echo hello" 2>/dev/null)
+rc=$?
+echo "  [DBG] echo test: rc=$rc stdout='$output'"
+if [[ $rc -eq 0 && "$output" == *"hello"* ]]; then
     result pass "utmctl exec: basic command"
 else
-    result fail "utmctl exec: basic command (got: $output)"
+    # Retry once — agent can be briefly unresponsive
+    sleep 3
+    output=$(utmctl exec "$VM_NAME" --cmd cmd.exe /c "echo hello" 2>/dev/null) || true
+    if [[ "$output" == *"hello"* ]]; then
+        result pass "utmctl exec: basic command (retry)"
+    else
+        output_full=$(utmctl exec "$VM_NAME" --cmd cmd.exe /c "echo hello" 2>&1) || true
+        result fail "utmctl exec: basic command (rc=$rc, output: $output_full)"
+    fi
 fi
 
 # Test 2: exec — whoami (should be SYSTEM since qemu-ga runs as SYSTEM)
-output=$(utmctl exec "$VM_NAME" --cmd cmd.exe /c "whoami" 2>&1) || true
-if [[ -n "$output" ]]; then
+output=$(utmctl exec "$VM_NAME" --cmd cmd.exe /c "whoami" 2>/dev/null) || true
+if [[ "$output" == *\\* ]]; then
     result pass "utmctl exec: whoami → $output"
 else
-    result fail "utmctl exec: whoami returned empty"
+    result fail "utmctl exec: whoami (got: $output)"
 fi
 
 # Test 3: exec — admin check (net session should succeed under SYSTEM)
-if utmctl exec "$VM_NAME" --cmd cmd.exe /c "net session" >/dev/null 2>&1; then
+net_output=$(utmctl exec "$VM_NAME" --cmd cmd.exe /c "net session" 2>&1) || true
+net_rc=$?
+echo "  [DBG] net session: rc=$net_rc"
+if [[ $net_rc -eq 0 && "$net_output" != *"not running"* ]]; then
     result pass "utmctl exec: admin privileges (net session)"
 else
-    result fail "utmctl exec: admin privileges (net session failed)"
+    result fail "utmctl exec: admin privileges (net session, rc=$net_rc)"
 fi
 
 # Test 4: file push
