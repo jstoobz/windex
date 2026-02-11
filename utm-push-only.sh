@@ -25,7 +25,7 @@ echo "Pushing scripts to '$VM_NAME'..."
 
 # Ensure directories exist
 utmctl exec "$VM_NAME" --cmd cmd.exe /c \
-    "if not exist \"$GUEST_SCRIPTS\" mkdir \"$GUEST_SCRIPTS\" & if not exist \"$GUEST_LIB\" mkdir \"$GUEST_LIB\"" \
+    "if not exist $GUEST_SCRIPTS mkdir $GUEST_SCRIPTS & if not exist $GUEST_LIB mkdir $GUEST_LIB" \
     >/dev/null 2>&1 || true
 
 count=0

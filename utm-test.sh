@@ -95,21 +95,21 @@ if [[ "$vm_status" == "started" ]]; then
     exit 1
 fi
 
-utmctl start --disposable "$VM_NAME"
 trap cleanup EXIT
+utmctl start --disposable "$VM_NAME"
 
 # ── Step 2: Wait for guest agent ─────────────────────────────────
 log "Waiting for guest agent..."
-elapsed=0
-while (( elapsed < MAX_WAIT )); do
+start_time=$SECONDS
+while (( SECONDS - start_time < MAX_WAIT )); do
     if utmctl exec "$VM_NAME" --cmd cmd.exe /c "echo ready" >/dev/null 2>&1; then
         break
     fi
     sleep "$POLL_INTERVAL"
-    ((elapsed += POLL_INTERVAL))
-    verbose "  ${elapsed}s..."
+    verbose "  $((SECONDS - start_time))s..."
 done
 
+elapsed=$((SECONDS - start_time))
 if (( elapsed >= MAX_WAIT )); then
     log "FAIL: Guest agent did not respond within ${MAX_WAIT}s"
     exit 1
@@ -119,7 +119,7 @@ log "Guest agent ready (${elapsed}s)"
 # ── Step 3: Create target directories on guest ───────────────────
 log "Creating directories on guest..."
 utmctl exec "$VM_NAME" --cmd cmd.exe /c \
-    "mkdir \"$GUEST_SCRIPTS\" & mkdir \"$GUEST_LIB\" & mkdir \"$GUEST_LOGS\" & mkdir \"$GUEST_OUTPUT\"" \
+    "if not exist $GUEST_SCRIPTS mkdir $GUEST_SCRIPTS & if not exist $GUEST_LIB mkdir $GUEST_LIB & if not exist $GUEST_LOGS mkdir $GUEST_LOGS & if not exist $GUEST_OUTPUT mkdir $GUEST_OUTPUT" \
     >/dev/null 2>&1 || true
 
 # ── Step 4: Push scripts ─────────────────────────────────────────
@@ -206,7 +206,8 @@ fi
 # ── Step 7: Pull credentials file if it exists ───────────────────
 if utmctl exec "$VM_NAME" --cmd cmd.exe /c "if exist \"$GUEST_OUTPUT\\credentials.txt\" echo exists" 2>/dev/null | grep -q "exists"; then
     log "Pulling credentials file..."
-    utmctl file pull "$VM_NAME" "${GUEST_OUTPUT}\\credentials.txt" > "$run_dir/credentials.txt" 2>/dev/null || {
+    utmctl file pull "$VM_NAME" "${GUEST_OUTPUT}\\credentials.txt" > "$run_dir/credentials.txt" 2>/dev/null && \
+        chmod 600 "$run_dir/credentials.txt" || {
         log "WARN: Failed to pull credentials.txt"
     }
 fi

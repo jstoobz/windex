@@ -51,16 +51,15 @@ fi
 
 # Wait for guest agent
 echo "Waiting for guest agent (up to ${MAX_WAIT}s)..."
-elapsed=0
+start_time=$SECONDS
 agent_ready=false
-while (( elapsed < MAX_WAIT )); do
+while (( SECONDS - start_time < MAX_WAIT )); do
     if utmctl exec "$VM_NAME" --cmd cmd.exe /c "echo ready" >/dev/null 2>&1; then
         agent_ready=true
         break
     fi
     sleep "$POLL_INTERVAL"
-    ((elapsed += POLL_INTERVAL))
-    printf "  %ds...\r" "$elapsed"
+    printf "  %ds...\r" "$((SECONDS - start_time))"
 done
 echo ""
 
