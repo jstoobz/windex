@@ -14,10 +14,10 @@ check() {
     shift
     if "$@" >/dev/null 2>&1; then
         echo "  [PASS] $label"
-        ((passed++))
+        ((passed++)) || true
     else
         echo "  [FAIL] $label"
-        ((failed++))
+        ((failed++)) || true
     fi
 }
 
@@ -44,20 +44,20 @@ check "VM '$VM_NAME' exists" utmctl status "$VM_NAME"
 avail_gb=$(df -g "$HOME" | awk 'NR==2 {print $4}')
 if (( avail_gb >= MIN_DISK_GB )); then
     echo "  [PASS] Disk space: ${avail_gb}GB available (need ${MIN_DISK_GB}GB)"
-    ((passed++))
+    ((passed++)) || true
 else
     echo "  [FAIL] Disk space: ${avail_gb}GB available (need ${MIN_DISK_GB}GB)"
-    ((failed++))
+    ((failed++)) || true
 fi
 
 # 5. Scripts directory exists and has batch files
 bat_count=$(find "$HOME/utm/scripts" -maxdepth 1 -name "*.bat" 2>/dev/null | wc -l | tr -d ' ')
 if (( bat_count > 0 )); then
     echo "  [PASS] Scripts directory: $bat_count .bat files found"
-    ((passed++))
+    ((passed++)) || true
 else
     echo "  [FAIL] Scripts directory: no .bat files in ~/utm/scripts/"
-    ((failed++))
+    ((failed++)) || true
 fi
 
 # 6. config.bat exists

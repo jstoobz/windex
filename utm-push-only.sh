@@ -35,7 +35,7 @@ for f in "$SCRIPTS_DIR"/*.bat; do
     fname=$(basename "$f")
     if cat "$f" | utmctl file push "$VM_NAME" "${GUEST_SCRIPTS}\\${fname}" 2>/dev/null; then
         echo "  → $fname"
-        ((count++))
+        ((count++)) || true
     else
         echo "  ✗ $fname (failed)"
     fi
@@ -43,7 +43,7 @@ done
 
 if cat "$SCRIPTS_DIR/lib/config.bat" | utmctl file push "$VM_NAME" "${GUEST_LIB}\\config.bat" 2>/dev/null; then
     echo "  → lib/config.bat"
-    ((count++))
+    ((count++)) || true
 else
     echo "  ✗ lib/config.bat (failed)"
 fi

@@ -18,9 +18,9 @@ skipped=0
 result() {
     local status="$1" label="$2"
     case "$status" in
-        pass) echo "  [PASS] $label"; ((passed++)) ;;
-        fail) echo "  [FAIL] $label"; ((failed++)) ;;
-        skip) echo "  [SKIP] $label"; ((skipped++)) ;;
+        pass) echo "  [PASS] $label"; ((passed++)) || true ;;
+        fail) echo "  [FAIL] $label"; ((failed++)) || true ;;
+        skip) echo "  [SKIP] $label"; ((skipped++)) || true ;;
     esac
 }
 

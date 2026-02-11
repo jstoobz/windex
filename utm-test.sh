@@ -132,7 +132,7 @@ for f in "$SCRIPTS_DIR"/*.bat; do
     fname=$(basename "$f")
     verbose "  → $fname"
     if cat "$f" | utmctl file push "$VM_NAME" "${GUEST_SCRIPTS}\\${fname}" 2>/dev/null; then
-        ((push_count++))
+        ((push_count++)) || true
     else
         log "WARN: Failed to push $fname"
     fi
@@ -140,7 +140,7 @@ done
 
 # Push lib/config.bat
 if cat "$SCRIPTS_DIR/lib/config.bat" | utmctl file push "$VM_NAME" "${GUEST_LIB}\\config.bat" 2>/dev/null; then
-    ((push_count++))
+    ((push_count++)) || true
     verbose "  → lib/config.bat"
 else
     log "ERROR: Failed to push lib/config.bat"
