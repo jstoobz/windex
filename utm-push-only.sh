@@ -21,7 +21,7 @@ if [[ -z "$SSH_USER" ]]; then
 fi
 
 # Verify VM is running
-vm_status=$(utmctl status "$VM_NAME" 2>/dev/null | awk '{print $NF}')
+vm_status=$(utmctl status "$VM_NAME" 2> /dev/null | awk '{print $NF}')
 if [[ "$vm_status" != "started" ]]; then
     echo "ERROR: VM '$VM_NAME' is not running (status: $vm_status)"
     echo "Start it first, or use utm-test.sh for a full test cycle."
@@ -29,7 +29,7 @@ if [[ "$vm_status" != "started" ]]; then
 fi
 
 # Verify SSH is reachable
-if ! ssh "${SSH_COMMON[@]}" -p "$SSH_PORT" "$SSH_USER@localhost" "echo ok" >/dev/null 2>&1; then
+if ! ssh "${SSH_COMMON[@]}" -p "$SSH_PORT" "$SSH_USER@localhost" "echo ok" > /dev/null 2>&1; then
     echo "ERROR: Cannot SSH to $SSH_USER@localhost:$SSH_PORT"
     exit 1
 fi
@@ -40,14 +40,14 @@ echo "Pushing scripts to '$VM_NAME' via SCP..."
 GUEST_DIR_WIN="${GUEST_DIR//\//\\}"
 ssh "${SSH_COMMON[@]}" -p "$SSH_PORT" "$SSH_USER@localhost" \
     "cmd.exe /c mkdir ${GUEST_DIR_WIN}\\scripts\\lib" \
-    >/dev/null 2>&1 || true
+    > /dev/null 2>&1 || true
 
 count=0
 
 for f in "$SCRIPTS_DIR"/*.bat; do
     [[ -f "$f" ]] || continue
     fname=$(basename "$f")
-    if scp "${SSH_COMMON[@]}" -P "$SSH_PORT" "$f" "$SSH_USER@localhost:$GUEST_SCRIPTS/$fname" 2>/dev/null; then
+    if scp "${SSH_COMMON[@]}" -P "$SSH_PORT" "$f" "$SSH_USER@localhost:$GUEST_SCRIPTS/$fname" 2> /dev/null; then
         echo "  → $fname"
         ((count++)) || true
     else
@@ -58,7 +58,7 @@ done
 for f in "$SCRIPTS_DIR"/lib/*.bat; do
     [[ -f "$f" ]] || continue
     fname=$(basename "$f")
-    if scp "${SSH_COMMON[@]}" -P "$SSH_PORT" "$f" "$SSH_USER@localhost:$GUEST_LIB/$fname" 2>/dev/null; then
+    if scp "${SSH_COMMON[@]}" -P "$SSH_PORT" "$f" "$SSH_USER@localhost:$GUEST_LIB/$fname" 2> /dev/null; then
         echo "  → lib/$fname"
         ((count++)) || true
     else

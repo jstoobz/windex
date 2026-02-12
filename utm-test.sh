@@ -32,14 +32,14 @@ VERBOSE=false
 
 for arg in "$@"; do
     case "$arg" in
-        --user=*)     SSH_USER="${arg#--user=}" ;;
-        --authkey=*)  AUTHKEY="${arg#--authkey=}" ;;
+        --user=*) SSH_USER="${arg#--user=}" ;;
+        --authkey=*) AUTHKEY="${arg#--authkey=}" ;;
         --username=*) STD_USERNAME="${arg#--username=}" ;;
         --password=*) STD_PASSWORD="${arg#--password=}" ;;
-        --dry-run)   DRY_RUN=true ;;
+        --dry-run) DRY_RUN=true ;;
         --keep-running) KEEP_RUNNING=true ;;
-        --verbose)   VERBOSE=true ;;
-        --help|-h)
+        --verbose) VERBOSE=true ;;
+        --help | -h)
             echo "Usage: utm-test.sh --user=<winuser> --authkey=tskey-auth-xxx [options]"
             echo ""
             echo "Required:"
@@ -85,11 +85,11 @@ ssh_cmd() {
 }
 
 scp_push() {
-    scp "${SSH_COMMON[@]}" -P "$SSH_PORT" "$1" "$SSH_USER@localhost:$2" 2>/dev/null
+    scp "${SSH_COMMON[@]}" -P "$SSH_PORT" "$1" "$SSH_USER@localhost:$2" 2> /dev/null
 }
 
 scp_pull() {
-    scp "${SSH_COMMON[@]}" -P "$SSH_PORT" "$SSH_USER@localhost:$1" "$2" 2>/dev/null
+    scp "${SSH_COMMON[@]}" -P "$SSH_PORT" "$SSH_USER@localhost:$1" "$2" 2> /dev/null
 }
 
 # Setup results directory with timestamp
@@ -107,7 +107,7 @@ cleanup() {
         log "  ssh ${SSH_COMMON[*]} -p $SSH_PORT $SSH_USER@localhost"
     else
         log "Stopping VM (discarding all changes)..."
-        utmctl stop "$VM_NAME" 2>/dev/null || true
+        utmctl stop "$VM_NAME" 2> /dev/null || true
     fi
 }
 
@@ -124,7 +124,7 @@ echo ""
 
 # ── Step 1: Start VM in disposable mode ──────────────────────────
 log "Starting VM in disposable mode..."
-vm_status=$(utmctl status "$VM_NAME" 2>/dev/null | awk '{print $NF}')
+vm_status=$(utmctl status "$VM_NAME" 2> /dev/null | awk '{print $NF}')
 if [[ "$vm_status" == "started" ]]; then
     echo "ERROR: VM is already running. Stop it first:"
     echo "  utmctl stop '$VM_NAME'"
@@ -140,8 +140,8 @@ utmctl start --disposable "$VM_NAME"
 log "Waiting for SSH..."
 start_time=$SECONDS
 ssh_ready=false
-while (( SECONDS - start_time < MAX_WAIT )); do
-    if ssh_cmd "echo ready" 2>/dev/null | grep -q "ready"; then
+while ((SECONDS - start_time < MAX_WAIT)); do
+    if ssh_cmd "echo ready" 2> /dev/null | grep -q "ready"; then
         ssh_ready=true
         break
     fi
@@ -161,7 +161,7 @@ log "Creating directories on guest..."
 # Convert forward slashes to backslashes for cmd.exe
 GUEST_DIR_WIN="${GUEST_DIR//\//\\}"
 ssh_cmd "cmd.exe /c mkdir ${GUEST_DIR_WIN}\\scripts\\lib & mkdir ${GUEST_DIR_WIN}\\logs & mkdir ${GUEST_DIR_WIN}\\output" \
-    >/dev/null 2>&1 || true
+    > /dev/null 2>&1 || true
 
 # ── Step 4: Push scripts via SCP ─────────────────────────────────
 log "Pushing scripts to VM..."
@@ -236,7 +236,7 @@ log "Master script exit code: $exec_exit"
 log "Pulling logs from VM..."
 
 # List log files on guest
-log_list=$(ssh_cmd "dir /b ${GUEST_DIR_WIN}\\logs\\*.log" 2>/dev/null) || true
+log_list=$(ssh_cmd "dir /b ${GUEST_DIR_WIN}\\logs\\*.log" 2> /dev/null) || true
 
 if [[ -n "$log_list" ]]; then
     while IFS= read -r logfile; do
@@ -252,10 +252,10 @@ else
 fi
 
 # ── Step 7: Pull credentials file if it exists ───────────────────
-if ssh_cmd "if exist ${GUEST_DIR_WIN}\\output\\credentials.txt echo exists" 2>/dev/null | grep -q "exists"; then
+if ssh_cmd "if exist ${GUEST_DIR_WIN}\\output\\credentials.txt echo exists" 2> /dev/null | grep -q "exists"; then
     log "Pulling credentials file..."
-    scp_pull "$GUEST_DIR/output/credentials.txt" "$run_dir/credentials.txt" && \
-        chmod 600 "$run_dir/credentials.txt" || {
+    scp_pull "$GUEST_DIR/output/credentials.txt" "$run_dir/credentials.txt" \
+        && chmod 600 "$run_dir/credentials.txt" || {
         log "WARN: Failed to pull credentials.txt"
     }
 fi
@@ -280,7 +280,7 @@ for f in "$run_dir"/*; do
 done
 
 echo ""
-if (( exec_exit == 0 )); then
+if ((exec_exit == 0)); then
     echo "  Result: PASS"
 else
     echo "  Result: FAIL (exit code $exec_exit)"

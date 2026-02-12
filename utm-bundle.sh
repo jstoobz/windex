@@ -28,10 +28,10 @@ STD_PASSWORD=""
 
 for arg in "$@"; do
     case "$arg" in
-        --authkey=*)  AUTHKEY="${arg#--authkey=}" ;;
+        --authkey=*) AUTHKEY="${arg#--authkey=}" ;;
         --username=*) STD_USERNAME="${arg#--username=}" ;;
         --password=*) STD_PASSWORD="${arg#--password=}" ;;
-        --help|-h)
+        --help | -h)
             echo "Usage: utm-bundle.sh <usb-mount-point> [options]"
             echo ""
             echo "  <usb-mount-point>   Path to mounted USB drive (e.g. /Volumes/PROVISION)"
@@ -325,7 +325,7 @@ if ! file "$USB_PATH/SETUP.bat" | grep -q "CRLF"; then
     ((errors++)) || true
 fi
 
-if (( errors > 0 )); then
+if ((errors > 0)); then
     echo ""
     echo "ERROR: Bundle verification failed ($errors issues)"
     exit 1

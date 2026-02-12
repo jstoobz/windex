@@ -10,7 +10,7 @@ set -euo pipefail
 # Load shared configuration
 source "$(dirname "$0")/utm.conf"
 
-SSH_USER="${1:-}"  # Pass Windows username as first arg
+SSH_USER="${1:-}" # Pass Windows username as first arg
 
 passed=0
 failed=0
@@ -18,8 +18,14 @@ failed=0
 result() {
     local status="$1" label="$2"
     case "$status" in
-        pass) echo "  [PASS] $label"; ((passed++)) || true ;;
-        fail) echo "  [FAIL] $label"; ((failed++)) || true ;;
+        pass)
+            echo "  [PASS] $label"
+            ((passed++)) || true
+            ;;
+        fail)
+            echo "  [FAIL] $label"
+            ((failed++)) || true
+            ;;
     esac
 }
 
@@ -32,7 +38,7 @@ ssh_cmd() {
 cleanup() {
     echo ""
     echo "Stopping VM..."
-    utmctl stop "$VM_NAME" 2>/dev/null || true
+    utmctl stop "$VM_NAME" 2> /dev/null || true
 }
 
 if [[ -z "$SSH_USER" ]]; then
@@ -55,7 +61,7 @@ if [[ ! -f "$SSH_KEY" ]]; then
 fi
 
 # Check current VM status
-vm_status=$(utmctl status "$VM_NAME" 2>/dev/null | awk '{print $NF}')
+vm_status=$(utmctl status "$VM_NAME" 2> /dev/null | awk '{print $NF}')
 
 if [[ "$vm_status" == "started" ]]; then
     echo "VM is already running — using existing session"
@@ -72,8 +78,8 @@ fi
 echo "Waiting for SSH on localhost:$SSH_PORT (up to ${MAX_WAIT}s)..."
 start_time=$SECONDS
 ssh_ready=false
-while (( SECONDS - start_time < MAX_WAIT )); do
-    if ssh_cmd "echo ready" 2>/dev/null | grep -q "ready"; then
+while ((SECONDS - start_time < MAX_WAIT)); do
+    if ssh_cmd "echo ready" 2> /dev/null | grep -q "ready"; then
         ssh_ready=true
         break
     fi
@@ -104,7 +110,7 @@ echo "Test Results"
 echo "============================================================"
 
 # Test 1: basic command
-output=$(ssh_cmd "echo hello" 2>/dev/null) || true
+output=$(ssh_cmd "echo hello" 2> /dev/null) || true
 if [[ "$output" == *"hello"* ]]; then
     result pass "SSH exec: basic command"
 else
@@ -112,7 +118,7 @@ else
 fi
 
 # Test 2: whoami
-output=$(ssh_cmd "whoami" 2>/dev/null) || true
+output=$(ssh_cmd "whoami" 2> /dev/null) || true
 if [[ "$output" == *\\* || "$output" == *"$SSH_USER"* ]]; then
     result pass "SSH exec: whoami → $output"
 else
@@ -120,7 +126,7 @@ else
 fi
 
 # Test 3: admin check
-if ssh_cmd "net session" >/dev/null 2>&1; then
+if ssh_cmd "net session" > /dev/null 2>&1; then
     result pass "SSH exec: admin privileges (net session)"
 else
     result fail "SSH exec: admin privileges (net session — may need admin shell)"
@@ -131,8 +137,8 @@ test_content="ssh-test-$(date +%s)"
 test_file=$(mktemp)
 echo "$test_content" > "$test_file"
 if scp -F /dev/null -i "$SSH_KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no \
-       -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
-       "$test_file" "$SSH_USER@localhost:C:/utm-test-file.txt" 2>/dev/null; then
+    -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+    "$test_file" "$SSH_USER@localhost:C:/utm-test-file.txt" 2> /dev/null; then
     result pass "SCP push"
 else
     result fail "SCP push"
@@ -141,8 +147,8 @@ fi
 # Test 5: file transfer via scp (pull + verify)
 pull_file=$(mktemp)
 if scp -F /dev/null -i "$SSH_KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no \
-       -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
-       "$SSH_USER@localhost:C:/utm-test-file.txt" "$pull_file" 2>/dev/null; then
+    -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+    "$SSH_USER@localhost:C:/utm-test-file.txt" "$pull_file" 2> /dev/null; then
     pulled=$(cat "$pull_file")
     if [[ "$pulled" == *"$test_content"* ]]; then
         result pass "SCP pull: content matches"
@@ -155,18 +161,18 @@ fi
 rm -f "$test_file" "$pull_file"
 
 # Test 6: cleanup
-ssh_cmd "del C:\\utm-test-file.txt" >/dev/null 2>&1 || true
+ssh_cmd "del C:\\utm-test-file.txt" > /dev/null 2>&1 || true
 result pass "cleanup: removed test file"
 
 # Test 7: network from inside VM
-if ssh_cmd "ping -n 1 -w 3000 8.8.8.8" >/dev/null 2>&1; then
+if ssh_cmd "ping -n 1 -w 3000 8.8.8.8" > /dev/null 2>&1; then
     result pass "network: ping 8.8.8.8 from guest"
 else
     result fail "network: ping 8.8.8.8 from guest"
 fi
 
 # Test 8: mkdir (needed for script deployment)
-if ssh_cmd "mkdir C:\\utm-mkdir-test && rmdir C:\\utm-mkdir-test" >/dev/null 2>&1; then
+if ssh_cmd "mkdir C:\\utm-mkdir-test && rmdir C:\\utm-mkdir-test" > /dev/null 2>&1; then
     result pass "SSH exec: mkdir + rmdir"
 else
     result fail "SSH exec: mkdir + rmdir"
@@ -178,7 +184,7 @@ echo "  Passed: $passed  Failed: $failed"
 echo "============================================================"
 echo ""
 
-if (( failed > 0 )); then
+if ((failed > 0)); then
     echo "Some capabilities are not working."
     echo "Fix these before running utm-test.sh."
 fi
@@ -189,4 +195,4 @@ if ! $we_started; then
     echo "VM was already running — leaving it running."
 fi
 
-(( failed == 0 )) && exit 0 || exit 1
+((failed == 0)) && exit 0 || exit 1
