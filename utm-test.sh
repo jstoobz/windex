@@ -13,6 +13,14 @@ set -euo pipefail
 # Load shared configuration
 source "$(dirname "$0")/utm.conf"
 
+# Load .env if present (for TAILSCALE_AUTHKEY etc.)
+ENV_FILE="$(dirname "$0")/.env"
+if [[ -f "$ENV_FILE" ]]; then
+    set -a
+    source "$ENV_FILE"
+    set +a
+fi
+
 # Parse arguments
 SSH_USER=""
 AUTHKEY=""
@@ -57,8 +65,11 @@ if [[ -z "$SSH_USER" ]]; then
     echo "ERROR: --user=<winuser> is required"
     exit 1
 fi
+if [[ -z "$AUTHKEY" && -n "$TAILSCALE_AUTHKEY" ]]; then
+    AUTHKEY="$TAILSCALE_AUTHKEY"
+fi
 if [[ -z "$AUTHKEY" && "$DRY_RUN" == false ]]; then
-    echo "ERROR: --authkey=KEY is required (or use --dry-run)"
+    echo "ERROR: --authkey=KEY is required (set in .env or pass --authkey=, or use --dry-run)"
     exit 1
 fi
 # Batch script requires authkey even in dry-run; use placeholder
@@ -199,6 +210,8 @@ if [[ -n "$STD_PASSWORD" ]]; then
     master_cmd="${master_cmd}set \"STANDARD_PASSWORD=$STD_PASSWORD\"& "
 fi
 master_cmd="${master_cmd}${GUEST_DIR_WIN}\\scripts\\00-setup-master.bat --force"
+# SLIRP networking can't route DNS to external servers — always skip DNS step
+master_cmd="$master_cmd --skip-dns"
 if $DRY_RUN; then
     master_cmd="$master_cmd --dry-run"
 fi
