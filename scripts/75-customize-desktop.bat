@@ -79,7 +79,7 @@ exit /b %EXIT_SUCCESS%
 call "%LOG%" info "Removing bloatware Start menu pins..."
 
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would remove provisioned appx packages (bloatware):
+    echo [DRY-RUN] Would remove provisioned appx packages - bloatware:
     echo [DRY-RUN]   Clipchamp, BingNews, BingWeather, GetHelp, Getstarted
     echo [DRY-RUN]   MicrosoftSolitaireCollection, MicrosoftStickyNotes
     echo [DRY-RUN]   People, PowerAutomate, Todos, WindowsFeedbackHub

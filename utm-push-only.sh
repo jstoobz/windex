@@ -55,12 +55,16 @@ for f in "$SCRIPTS_DIR"/*.bat; do
     fi
 done
 
-if scp "${SSH_COMMON[@]}" -P "$SSH_PORT" "$SCRIPTS_DIR/lib/config.bat" "$SSH_USER@localhost:$GUEST_LIB/config.bat" 2>/dev/null; then
-    echo "  → lib/config.bat"
-    ((count++)) || true
-else
-    echo "  ✗ lib/config.bat (failed)"
-fi
+for f in "$SCRIPTS_DIR"/lib/*.bat; do
+    [[ -f "$f" ]] || continue
+    fname=$(basename "$f")
+    if scp "${SSH_COMMON[@]}" -P "$SSH_PORT" "$f" "$SSH_USER@localhost:$GUEST_LIB/$fname" 2>/dev/null; then
+        echo "  → lib/$fname"
+        ((count++)) || true
+    else
+        echo "  ✗ lib/$fname (failed)"
+    fi
+done
 
 echo ""
 echo "Pushed $count files."

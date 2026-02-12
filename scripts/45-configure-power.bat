@@ -79,10 +79,10 @@ exit /b %EXIT_SUCCESS%
 call "%LOG%" info "Configuring power plan..."
 
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would set AC sleep timeout to 0 (never)
-    echo [DRY-RUN] Would set battery sleep timeout to 1800s (30 min)
-    echo [DRY-RUN] Would set AC display timeout to 3600s (60 min)
-    echo [DRY-RUN] Would set battery display timeout to 600s (10 min)
+    echo [DRY-RUN] Would set AC sleep timeout to 0 - never
+    echo [DRY-RUN] Would set battery sleep timeout to 1800s - 30 min
+    echo [DRY-RUN] Would set AC display timeout to 3600s - 60 min
+    echo [DRY-RUN] Would set battery display timeout to 600s - 10 min
     echo [DRY-RUN] Would disable hibernate
     exit /b 0
 )

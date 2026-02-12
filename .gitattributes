@@ -1,0 +1,8 @@
+# Windows batch scripts need CRLF for reliable cmd.exe label parsing
+*.bat text eol=crlf
+
+# Shell scripts need LF
+*.sh text eol=lf
+
+# PowerShell works with either, but CRLF is conventional
+*.ps1 text eol=crlf

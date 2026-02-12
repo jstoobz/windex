@@ -162,14 +162,18 @@ for f in "$SCRIPTS_DIR"/*.bat; do
     fi
 done
 
-# Push lib/config.bat
-if scp_push "$SCRIPTS_DIR/lib/config.bat" "$GUEST_LIB/config.bat"; then
-    ((push_count++)) || true
-    verbose "  → lib/config.bat"
-else
-    log "ERROR: Failed to push lib/config.bat"
-    exit 1
-fi
+# Push lib/*.bat
+for f in "$SCRIPTS_DIR"/lib/*.bat; do
+    [[ -f "$f" ]] || continue
+    fname=$(basename "$f")
+    if scp_push "$f" "$GUEST_LIB/$fname"; then
+        ((push_count++)) || true
+        verbose "  → lib/$fname"
+    else
+        log "ERROR: Failed to push lib/$fname"
+        exit 1
+    fi
+done
 
 log "Pushed $push_count files"
 

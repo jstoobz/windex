@@ -129,8 +129,8 @@ exit /b 0
 call "%LOG%" info "Configuring user account..."
 
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would add user to 'Users' group (standard, non-admin)
-    echo [DRY-RUN] Would set password to expire (force change on first login)
+    echo [DRY-RUN] Would add user to 'Users' group - standard, non-admin
+    echo [DRY-RUN] Would set password to expire - force change on first login
     echo [DRY-RUN] Would set auto-login for the standard user
     exit /b 0
 )

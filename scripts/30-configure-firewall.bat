@@ -131,7 +131,7 @@ exit /b 0
 call "%LOG%" info "Creating firewall rules..."
 
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would create firewall rule: Allow VNC from Tailscale (%TAILSCALE_SUBNET%)
+    echo [DRY-RUN] Would create firewall rule: Allow VNC from Tailscale subnet %TAILSCALE_SUBNET%
     echo [DRY-RUN] Would create firewall rule: Block VNC from all other sources
     exit /b 0
 )

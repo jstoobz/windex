@@ -52,13 +52,13 @@ call :GenerateSummary
 :: Return appropriate exit code
 if %CHECKS_FAILED% GTR 0 (
     echo.
-    echo [ERROR] Verification FAILED: %CHECKS_FAILED% check(s) failed
+    echo [ERROR] Verification FAILED: %CHECKS_FAILED% checks failed
     exit /b %EXIT_VERIFICATION_FAILED%
 )
 
 if %CHECKS_WARNED% GTR 0 (
     echo.
-    echo [WARN] Verification PASSED with warnings: %CHECKS_WARNED% warning(s)
+    echo [WARN] Verification PASSED with warnings: %CHECKS_WARNED% warnings
     exit /b %EXIT_PARTIAL_SUCCESS%
 )
 

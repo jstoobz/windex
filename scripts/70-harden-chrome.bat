@@ -91,7 +91,7 @@ set "UBLOCK_VALUE=%EXT_UBLOCK%;https://clients2.google.com/service/update2/crx"
 
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would create registry key: %EXT_KEY%
-    echo [DRY-RUN] Would add extension: uBlock Origin (%EXT_UBLOCK%)
+    echo [DRY-RUN] Would add extension: uBlock Origin %EXT_UBLOCK%
     echo [DRY-RUN]   reg add "%EXT_KEY%" /v "1" /t REG_SZ /d "%UBLOCK_VALUE%" /f
     exit /b 0
 )
@@ -116,12 +116,12 @@ set "CHROME_KEY=HKLM\SOFTWARE\Policies\Google\Chrome"
 
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would apply Chrome policies to: %CHROME_KEY%
-    echo [DRY-RUN]   SafeBrowsingProtectionLevel = 2 (enhanced)
+    echo [DRY-RUN]   SafeBrowsingProtectionLevel = 2 [enhanced]
     echo [DRY-RUN]   SafeBrowsingEnabled = 1
     echo [DRY-RUN]   PasswordManagerEnabled = 0
     echo [DRY-RUN]   AutofillCreditCardEnabled = 0
-    echo [DRY-RUN]   DefaultPopupsSetting = 2 (block)
-    echo [DRY-RUN]   BrowserSignin = 0 (disabled)
+    echo [DRY-RUN]   DefaultPopupsSetting = 2 [block]
+    echo [DRY-RUN]   BrowserSignin = 0 [disabled]
     echo [DRY-RUN]   HomepageLocation = https://www.google.com
     exit /b 0
 )

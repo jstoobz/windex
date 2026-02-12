@@ -73,7 +73,7 @@ call "%LOG%" info "Setting DNS to %DNS_PRIMARY% / %DNS_SECONDARY% on all adapter
 
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would set DNS on all active network adapters:
-    echo [DRY-RUN]   Primary:   %DNS_PRIMARY% (Cloudflare Family - malware + phishing blocking)
+    echo [DRY-RUN]   Primary:   %DNS_PRIMARY% - Cloudflare Family, malware + phishing blocking
     echo [DRY-RUN]   Secondary: %DNS_SECONDARY%
     echo [DRY-RUN] Would use PowerShell Get-NetAdapter to find active adapters
     exit /b 0
