@@ -222,8 +222,13 @@ goto :WaitForService
 
 :ServiceRunning
 call "%LOG%" debug "Tailscale service is running"
+
+:: Enable unattended mode so daemon stays connected after CLI exits
+call "%LOG%" debug "Enabling unattended mode..."
+"%TAILSCALE_EXE%" set --unattended >nul 2>&1
+
 call "%LOG%" debug "Authenticating with auth key..."
-"%TAILSCALE_EXE%" up --authkey=%TAILSCALE_AUTHKEY%
+"%TAILSCALE_EXE%" up --authkey=%TAILSCALE_AUTHKEY% --unattended --timeout=60s
 if errorlevel 1 (
     call "%LOG%" error "Failed to connect to Tailscale"
     call "%LOG%" error "Check that your auth key is valid and not expired"
