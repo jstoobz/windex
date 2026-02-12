@@ -12,7 +12,7 @@ SSH_KEY="$HOME/.ssh/utm_vm"
 SSH_PORT=2222
 SSH_USER="${1:-}"  # Pass Windows username as first arg
 POLL_INTERVAL=5
-MAX_WAIT=300  # 5 minutes (disposable boots are slow — Windows Update)
+MAX_WAIT=600  # 10 minutes — disposable Windows boots are slow
 
 passed=0
 failed=0

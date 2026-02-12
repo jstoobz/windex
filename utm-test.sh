@@ -21,9 +21,9 @@ GUEST_LIB="$GUEST_SCRIPTS/lib"
 GUEST_LOGS="$GUEST_BASE/logs"
 GUEST_OUTPUT="$GUEST_BASE/output"
 POLL_INTERVAL=5
-MAX_WAIT=300
+MAX_WAIT=600  # 10 minutes — disposable Windows boots are slow
 
-SSH_OPTS=(-F /dev/null -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no \
+SSH_COMMON=(-F /dev/null -i "$SSH_KEY" -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -o LogLevel=ERROR)
 
 # Parse arguments
@@ -68,20 +68,24 @@ if [[ -z "$AUTHKEY" && "$DRY_RUN" == false ]]; then
     echo "ERROR: --authkey=KEY is required (or use --dry-run)"
     exit 1
 fi
+# Batch script requires authkey even in dry-run; use placeholder
+if [[ -z "$AUTHKEY" && "$DRY_RUN" == true ]]; then
+    AUTHKEY="tskey-auth-dry-run-placeholder"
+fi
 
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 verbose() { $VERBOSE && log "$*" || true; }
 
 ssh_cmd() {
-    ssh "${SSH_OPTS[@]}" "$SSH_USER@localhost" "$@"
+    ssh "${SSH_COMMON[@]}" -p "$SSH_PORT" "$SSH_USER@localhost" "$@"
 }
 
 scp_push() {
-    scp "${SSH_OPTS[@]}" -P "$SSH_PORT" "$1" "$SSH_USER@localhost:$2" 2>/dev/null
+    scp "${SSH_COMMON[@]}" -P "$SSH_PORT" "$1" "$SSH_USER@localhost:$2" 2>/dev/null
 }
 
 scp_pull() {
-    scp "${SSH_OPTS[@]}" -P "$SSH_PORT" "$SSH_USER@localhost:$1" "$2" 2>/dev/null
+    scp "${SSH_COMMON[@]}" -P "$SSH_PORT" "$SSH_USER@localhost:$1" "$2" 2>/dev/null
 }
 
 # Setup results directory with timestamp
@@ -96,7 +100,7 @@ cleanup() {
         log "  (Disk changes will be discarded on stop)"
         log ""
         log "SSH in with:"
-        log "  ssh ${SSH_OPTS[*]} $SSH_USER@localhost"
+        log "  ssh ${SSH_COMMON[*]} -p $SSH_PORT $SSH_USER@localhost"
     else
         log "Stopping VM (discarding all changes)..."
         utmctl stop "$VM_NAME" 2>/dev/null || true
@@ -150,7 +154,8 @@ log "SSH ready (${elapsed}s)"
 
 # ── Step 3: Create target directories on guest ───────────────────
 log "Creating directories on guest..."
-ssh_cmd "cmd.exe /c \"if not exist $GUEST_SCRIPTS mkdir $GUEST_SCRIPTS & if not exist $GUEST_LIB mkdir $GUEST_LIB & if not exist $GUEST_LOGS mkdir $GUEST_LOGS & if not exist $GUEST_OUTPUT mkdir $GUEST_OUTPUT\"" \
+# mkdir on Windows creates intermediate dirs; use backslashes for cmd.exe
+ssh_cmd "cmd.exe /c mkdir C:\\mah-setup\\scripts\\lib & mkdir C:\\mah-setup\\logs & mkdir C:\\mah-setup\\output" \
     >/dev/null 2>&1 || true
 
 # ── Step 4: Push scripts via SCP ─────────────────────────────────
@@ -183,11 +188,12 @@ log "Pushed $push_count files"
 # ── Step 5: Execute master script ────────────────────────────────
 log "Executing setup master..."
 
-# Build command — use backslashes for cmd.exe paths
-master_cmd="C:\\mah-setup\\scripts\\00-setup-master.bat --force"
+# Build command — set authkey as env var (cmd.exe splits = in args through SSH)
+master_cmd=""
 if [[ -n "$AUTHKEY" ]]; then
-    master_cmd="$master_cmd --authkey=$AUTHKEY"
+    master_cmd="set TAILSCALE_AUTHKEY=$AUTHKEY & "
 fi
+master_cmd="${master_cmd}C:\\mah-setup\\scripts\\00-setup-master.bat --force"
 if $DRY_RUN; then
     master_cmd="$master_cmd --dry-run"
 fi
@@ -201,7 +207,7 @@ echo ""
 # Run and capture output (tee to both console and file)
 exec_output="$run_dir/exec-output.txt"
 set +e
-ssh_cmd "cmd.exe /c \"$master_cmd\"" 2>&1 | tee "$exec_output"
+ssh_cmd "$master_cmd" 2>&1 | tee "$exec_output"
 exec_exit=$?
 set -e
 
@@ -212,14 +218,14 @@ log "Master script exit code: $exec_exit"
 log "Pulling logs from VM..."
 
 # List log files on guest
-log_list=$(ssh_cmd "cmd.exe /c \"dir /b $GUEST_LOGS\\*.log\"" 2>/dev/null) || true
+log_list=$(ssh_cmd "dir /b C:\\mah-setup\\logs\\*.log" 2>/dev/null) || true
 
 if [[ -n "$log_list" ]]; then
     while IFS= read -r logfile; do
         logfile=$(echo "$logfile" | tr -d '\r')
         [[ -z "$logfile" ]] && continue
         verbose "  ← $logfile"
-        scp_pull "$GUEST_LOGS/$logfile" "$run_dir/$logfile" || {
+        scp_pull "C:/mah-setup/logs/$logfile" "$run_dir/$logfile" || {
             log "WARN: Failed to pull $logfile"
         }
     done <<< "$log_list"
@@ -228,9 +234,9 @@ else
 fi
 
 # ── Step 7: Pull credentials file if it exists ───────────────────
-if ssh_cmd "cmd.exe /c \"if exist $GUEST_OUTPUT\\credentials.txt echo exists\"" 2>/dev/null | grep -q "exists"; then
+if ssh_cmd "if exist C:\\mah-setup\\output\\credentials.txt echo exists" 2>/dev/null | grep -q "exists"; then
     log "Pulling credentials file..."
-    scp_pull "$GUEST_OUTPUT/credentials.txt" "$run_dir/credentials.txt" && \
+    scp_pull "C:/mah-setup/output/credentials.txt" "$run_dir/credentials.txt" && \
         chmod 600 "$run_dir/credentials.txt" || {
         log "WARN: Failed to pull credentials.txt"
     }
