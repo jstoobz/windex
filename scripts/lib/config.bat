@@ -75,6 +75,16 @@ set "FW_RULE_VNC_ALLOW=VNC-Tailscale-Allow"
 set "FW_RULE_VNC_BLOCK=VNC-Block-All"
 
 :: ============================================================================
+:: ESSENTIAL APPS
+:: ============================================================================
+set "CHROME_EXE=C:\Program Files\Google\Chrome\Application\chrome.exe"
+set "ITUNES_EXE=C:\Program Files\iTunes\iTunes.exe"
+set "MALWAREBYTES_EXE=C:\Program Files\Malwarebytes\Anti-Malware\mbam.exe"
+
+:: CHROME EXTENSIONS (Chrome Web Store IDs)
+set "EXT_UBLOCK=cjpalhdlnbpafiamejdnhcphjbkeiagm"
+
+:: ============================================================================
 :: REGISTRY CONFIGURATION
 :: ============================================================================
 set "SETUP_REG_KEY=HKLM\SOFTWARE\RemoteAccessSetup"

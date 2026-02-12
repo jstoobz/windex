@@ -16,6 +16,8 @@
 ::   --skip-vnc          Skip TightVNC installation
 ::   --skip-firewall     Skip firewall configuration
 ::   --skip-hardening    Skip system hardening
+::   --skip-apps         Skip essential app installation
+::   --skip-chrome       Skip Chrome hardening
 ::   --continue-on-error Continue even if a step fails
 ::
 :: Exit Codes: 0=Success, 1=Cancelled, 2=Prerequisites, 3=Failed, 4=Verification
@@ -39,6 +41,8 @@ set "SKIP_TAILSCALE=0"
 set "SKIP_VNC=0"
 set "SKIP_FIREWALL=0"
 set "SKIP_HARDENING=0"
+set "SKIP_APPS=0"
+set "SKIP_CHROME_HARDENING=0"
 
 :: Parse command line arguments
 :ParseArgs
@@ -54,6 +58,8 @@ if /i "%~1"=="--skip-tailscale" set "SKIP_TAILSCALE=1"
 if /i "%~1"=="--skip-vnc" set "SKIP_VNC=1"
 if /i "%~1"=="--skip-firewall" set "SKIP_FIREWALL=1"
 if /i "%~1"=="--skip-hardening" set "SKIP_HARDENING=1"
+if /i "%~1"=="--skip-apps" set "SKIP_APPS=1"
+if /i "%~1"=="--skip-chrome" set "SKIP_CHROME_HARDENING=1"
 if /i "%~1"=="--help" goto :ShowHelp
 if /i "%~1"=="/?" goto :ShowHelp
 :: Handle --authkey=VALUE format
@@ -111,7 +117,7 @@ if "%FORCE%"=="0" (
 )
 
 :: Initialize step tracking
-set "STEPS_TOTAL=6"
+set "STEPS_TOTAL=8"
 set "STEPS_COMPLETED=0"
 set "STEPS_FAILED=0"
 set "STEPS_SKIPPED=0"
@@ -166,7 +172,31 @@ if "%SKIP_HARDENING%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 5: Configure Services
+:: STEP 5: Install Essential Apps
+:: ============================================================================
+if "%SKIP_APPS%"=="1" (
+    call :StepSkipped "Essential App Installation"
+) else (
+    call :RunStep "Essential App Installation" "60-install-apps.bat"
+    if errorlevel 1 (
+        if "%CONTINUE_ON_ERROR%"=="0" goto :SetupFailed
+    )
+)
+
+:: ============================================================================
+:: STEP 6: Harden Chrome
+:: ============================================================================
+if "%SKIP_CHROME_HARDENING%"=="1" (
+    call :StepSkipped "Chrome Hardening"
+) else (
+    call :RunStep "Chrome Hardening" "70-harden-chrome.bat"
+    if errorlevel 1 (
+        if "%CONTINUE_ON_ERROR%"=="0" goto :SetupFailed
+    )
+)
+
+:: ============================================================================
+:: STEP 7: Configure Services
 :: ============================================================================
 call :RunStep "Service Configuration" "50-configure-services.bat"
 if errorlevel 1 (
@@ -174,7 +204,7 @@ if errorlevel 1 (
 )
 
 :: ============================================================================
-:: STEP 6: Verify Setup
+:: STEP 8: Verify Setup
 :: ============================================================================
 call :RunStep "Setup Verification" "90-verify-setup.bat"
 set "VERIFY_RESULT=%ERRORLEVEL%"
@@ -243,8 +273,10 @@ if "%SKIP_TAILSCALE%"=="0" echo    1. Install Tailscale VPN
 if "%SKIP_VNC%"=="0"       echo    2. Install TightVNC Server
 if "%SKIP_FIREWALL%"=="0"  echo    3. Configure Windows Firewall
 if "%SKIP_HARDENING%"=="0" echo    4. Apply security hardening
-echo    5. Configure services for auto-start
-echo    6. Verify the installation
+if "%SKIP_APPS%"=="0"      echo    5. Install essential apps (Chrome, iTunes, Malwarebytes)
+if "%SKIP_CHROME_HARDENING%"=="0" echo    6. Harden Chrome browser
+echo    7. Configure services for auto-start
+echo    8. Verify the installation
 echo.
 echo  ============================================================
 echo.
@@ -383,6 +415,8 @@ echo   --skip-tailscale    Skip Tailscale installation
 echo   --skip-vnc          Skip TightVNC installation
 echo   --skip-firewall     Skip firewall configuration
 echo   --skip-hardening    Skip system hardening
+echo   --skip-apps         Skip essential app installation
+echo   --skip-chrome       Skip Chrome hardening
 echo.
 echo Examples:
 echo   %~nx0 --authkey=tskey-auth-xxxxx
