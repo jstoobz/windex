@@ -55,6 +55,25 @@ set "ROLLBACK_ERRORS=0"
 
 call :LogInfo "Starting rollback process..."
 
+:: Reverse order of installation (user-facing first, infra last)
+call :RemoveStandardUser
+if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
+
+call :RemoveChromePolicies
+if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
+
+call :RevertDns
+if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
+
+call :RevertPowerSettings
+if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
+
+call :UninstallApps
+if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
+
+call :RemoveDesktopShortcuts
+if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
+
 call :RemoveFirewallRules
 if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
 
@@ -134,10 +153,19 @@ echo  WARNING: ROLLBACK CONFIRMATION
 echo ============================================================
 echo.
 echo  This will REMOVE the following components:
+echo    - Standard user account and auto-login
+echo    - Chrome policies, forced extensions
+echo    - DNS filtering (revert to automatic)
+echo    - Power settings (revert to Windows defaults)
+echo    - Installed apps (Chrome, iTunes, Malwarebytes)
+echo    - Desktop shortcuts
 echo    - Tailscale VPN (and disconnect from network)
 echo    - TightVNC Server (remote access will be disabled)
 echo    - Firewall rules for VNC
 echo    - Setup configuration and artifacts
+echo.
+echo  NOTE: Removed bloatware (TikTok, Solitaire, etc.) will NOT be
+echo  reinstalled. Use the Microsoft Store to restore them if needed.
 echo.
 echo  This action cannot be easily undone.
 echo.
@@ -145,6 +173,159 @@ set /p "CONFIRM=Are you sure you want to proceed? [y/N]: "
 if /i "%CONFIRM%"=="y" exit /b 0
 if /i "%CONFIRM%"=="yes" exit /b 0
 exit /b 1
+
+:RemoveStandardUser
+call :LogInfo "Removing standard user account..."
+
+:: Read the username from registry if available
+set "STD_USER_NAME="
+for /f "tokens=2*" %%A in ('reg query "%SETUP_REG_KEY%" /v "StandardUserName" 2^>nul ^| findstr "StandardUserName"') do set "STD_USER_NAME=%%B"
+
+if not defined STD_USER_NAME (
+    call :LogDebug "No standard user recorded in registry, skipping"
+    exit /b 0
+)
+
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would delete user account: %STD_USER_NAME%
+    echo [DRY-RUN] Would remove auto-login registry entries
+    exit /b 0
+)
+
+:: Remove auto-login settings first
+reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v "AutoAdminLogon" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v "DefaultUserName" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v "DefaultPassword" /f >nul 2>&1
+call :LogDebug "Auto-login settings removed"
+
+:: Delete the user account
+net user "%STD_USER_NAME%" /delete >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call :LogSuccess "User '%STD_USER_NAME%' deleted"
+) else (
+    call :LogWarn "Could not delete user '%STD_USER_NAME%' (may not exist)"
+)
+
+exit /b 0
+
+:RemoveChromePolicies
+call :LogInfo "Removing Chrome policies and forced extensions..."
+
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would delete registry key: HKLM\SOFTWARE\Policies\Google\Chrome
+    exit /b 0
+)
+
+:: Remove the entire Chrome policy tree (includes ExtensionInstallForcelist)
+reg delete "HKLM\SOFTWARE\Policies\Google\Chrome" /f >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call :LogSuccess "Chrome policies removed"
+) else (
+    call :LogDebug "No Chrome policies found"
+)
+
+exit /b 0
+
+:RevertDns
+call :LogInfo "Reverting DNS to automatic (DHCP)..."
+
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would reset DNS to DHCP on all network adapters
+    exit /b 0
+)
+
+:: Reset all active adapters to DHCP DNS
+powershell -NoProfile -Command ^
+    "$adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }; " ^
+    "foreach ($a in $adapters) { " ^
+    "  Set-DnsClientServerAddress -InterfaceIndex $a.ifIndex -ResetServerAddresses; " ^
+    "  Write-Host \"  Reset DNS on: $($a.Name)\"; " ^
+    "}"
+if errorlevel 1 (
+    call :LogWarn "Failed to reset DNS on some adapters"
+    exit /b 1
+)
+
+call :LogSuccess "DNS reverted to automatic (DHCP)"
+exit /b 0
+
+:RevertPowerSettings
+call :LogInfo "Reverting power settings to Windows defaults..."
+
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would restore default power plan settings
+    echo [DRY-RUN] Would remove Windows Update active hours override
+    exit /b 0
+)
+
+:: Restore default power plan values
+powercfg /change standby-timeout-ac 30
+powercfg /change standby-timeout-dc 15
+powercfg /change monitor-timeout-ac 15
+powercfg /change monitor-timeout-dc 5
+powercfg /hibernate on
+call :LogDebug "Power plan restored to defaults"
+
+:: Restore lid close action to sleep on AC
+powercfg /setacvalueindex scheme_current sub_buttons lidaction 1
+powercfg /setactive scheme_current
+call :LogDebug "Lid close action restored to sleep"
+
+:: Remove active hours override (let Windows manage)
+reg delete "HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" /v "ActiveHoursStart" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" /v "ActiveHoursEnd" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" /v "IsActiveHoursEnabled" /f >nul 2>&1
+call :LogDebug "Windows Update active hours cleared"
+
+call :LogSuccess "Power settings reverted to defaults"
+exit /b 0
+
+:UninstallApps
+call :LogInfo "Uninstalling provisioned applications..."
+
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would uninstall: Google Chrome, Apple iTunes, Malwarebytes
+    echo [DRY-RUN]   winget uninstall --id Google.Chrome --silent
+    echo [DRY-RUN]   winget uninstall --id Apple.iTunes --silent
+    echo [DRY-RUN]   winget uninstall --id Malwarebytes.Malwarebytes --silent
+    exit /b 0
+)
+
+:: Uninstall each app via winget (gracefully skip if not installed)
+for %%P in (Google.Chrome Apple.iTunes Malwarebytes.Malwarebytes) do (
+    call :LogDebug "Uninstalling %%P..."
+    winget uninstall --id %%P --silent >nul 2>&1
+    if !ERRORLEVEL! EQU 0 (
+        call :LogSuccess "Uninstalled %%P"
+    ) else (
+        call :LogDebug "%%P not found or already removed"
+    )
+)
+
+exit /b 0
+
+:RemoveDesktopShortcuts
+call :LogInfo "Removing desktop shortcuts..."
+
+set "PUBLIC_DESKTOP=C:\Users\Public\Desktop"
+
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would remove shortcuts from %PUBLIC_DESKTOP%
+    exit /b 0
+)
+
+if exist "%PUBLIC_DESKTOP%\Google Chrome.lnk" (
+    del "%PUBLIC_DESKTOP%\Google Chrome.lnk" 2>nul
+    call :LogDebug "Removed Chrome shortcut"
+)
+
+if exist "%PUBLIC_DESKTOP%\iTunes.lnk" (
+    del "%PUBLIC_DESKTOP%\iTunes.lnk" 2>nul
+    call :LogDebug "Removed iTunes shortcut"
+)
+
+call :LogSuccess "Desktop shortcuts removed"
+exit /b 0
 
 :RemoveFirewallRules
 call :LogInfo "Removing firewall rules..."
