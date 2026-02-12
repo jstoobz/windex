@@ -30,25 +30,25 @@ goto :ParseArgs
 :: ============================================================================
 :: MAIN EXECUTION
 :: ============================================================================
-call :LogSection "TightVNC Installation"
+call "%LOG%" section "TightVNC Installation"
 
 :: Check for admin privileges
-call :CheckAdmin
+call "%ADMIN%"
 if errorlevel 1 (
-    call :LogError "Administrator privileges required"
+    call "%LOG%" error "Administrator privileges required"
     exit /b %EXIT_PREREQ_FAILED%
 )
 
 :: Check if already installed (idempotency)
 call :CheckTightVNCInstalled
 if %ERRORLEVEL% EQU 0 (
-    call :LogInfo "TightVNC is already installed"
+    call "%LOG%" info "TightVNC is already installed"
     call :VerifyTightVNCService
     if %ERRORLEVEL% EQU 0 (
-        call :LogSuccess "TightVNC is installed and running"
+        call "%LOG%" success "TightVNC is installed and running"
         exit /b %EXIT_SUCCESS%
     ) else (
-        call :LogWarn "TightVNC installed but service not running"
+        call "%LOG%" warn "TightVNC installed but service not running"
         call :StartTightVNCService
         exit /b %ERRORLEVEL%
     )
@@ -80,105 +80,63 @@ if errorlevel 1 exit /b %EXIT_VERIFICATION_FAILED%
 :: Mark as installed
 call :MarkInstalled
 
-call :LogSuccess "TightVNC installation completed successfully"
-call :LogInfo "VNC credentials saved to: %CREDENTIALS_FILE%"
+call "%LOG%" success "TightVNC installation completed successfully"
+call "%LOG%" info "VNC credentials saved to: %CREDENTIALS_FILE%"
 exit /b %EXIT_SUCCESS%
 
 :: ============================================================================
 :: FUNCTIONS
 :: ============================================================================
 
-:LogSection
-echo.
-echo ============================================================
-echo %~1
-echo ============================================================
-if defined LOG_FILE (
-    echo. >> "%LOG_FILE%"
-    echo ============================================================ >> "%LOG_FILE%"
-    echo %~1 >> "%LOG_FILE%"
-)
-goto :eof
-
-:LogInfo
-echo [INFO] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [INFO] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogError
-echo [ERROR] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [ERROR] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogSuccess
-echo [OK] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [OK] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogDebug
-if "%VERBOSE%"=="1" echo [DEBUG] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [DEBUG] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogWarn
-echo [WARN] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [WARN] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:CheckAdmin
-net session >nul 2>&1
-if errorlevel 1 exit /b 1
-exit /b 0
-
 :CheckTightVNCInstalled
-call :LogDebug "Checking if TightVNC is installed..."
+call "%LOG%" debug "Checking if TightVNC is installed..."
 if exist "%TIGHTVNC_DIR%\tvnserver.exe" (
-    call :LogDebug "TightVNC executable found"
+    call "%LOG%" debug "TightVNC executable found"
     exit /b 0
 )
 sc query %TIGHTVNC_SERVICE% >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    call :LogDebug "TightVNC service found"
+    call "%LOG%" debug "TightVNC service found"
     exit /b 0
 )
 exit /b 1
 
 :VerifyTightVNCService
-call :LogDebug "Checking TightVNC service status..."
+call "%LOG%" debug "Checking TightVNC service status..."
 sc query %TIGHTVNC_SERVICE% | findstr "RUNNING" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    call :LogDebug "TightVNC service is running"
+    call "%LOG%" debug "TightVNC service is running"
     exit /b 0
 )
 exit /b 1
 
 :StartTightVNCService
-call :LogInfo "Starting TightVNC service..."
+call "%LOG%" info "Starting TightVNC service..."
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would start TightVNC service
     exit /b 0
 )
 net start %TIGHTVNC_SERVICE% >nul 2>&1
 if errorlevel 1 (
-    call :LogError "Failed to start TightVNC service"
+    call "%LOG%" error "Failed to start TightVNC service"
     exit /b 1
 )
-call :LogSuccess "TightVNC service started"
+call "%LOG%" success "TightVNC service started"
 exit /b 0
 
 :PreflightChecks
-call :LogInfo "Running pre-flight checks..."
+call "%LOG%" info "Running pre-flight checks..."
 ping -n 1 -w 3000 8.8.8.8 >nul 2>&1
 if errorlevel 1 (
-    call :LogError "No internet connectivity"
+    call "%LOG%" error "No internet connectivity"
     exit /b 1
 )
-call :LogDebug "Internet connectivity: OK"
-call :LogSuccess "Pre-flight checks passed"
+call "%LOG%" debug "Internet connectivity: OK"
+call "%LOG%" success "Pre-flight checks passed"
 exit /b 0
 
 :GeneratePassword
-call :LogInfo "Generating secure VNC password..."
+call "%LOG%" info "Generating secure VNC password..."
 if "%DRY_RUN%"=="1" (
     set "VNC_PASSWORD=DryRunPassword123"
     echo [DRY-RUN] Would generate %VNC_PASSWORD_LENGTH%-character password
@@ -198,16 +156,16 @@ if not defined VNC_PASSWORD (
 )
 
 if not defined VNC_PASSWORD (
-    call :LogError "Failed to generate password"
+    call "%LOG%" error "Failed to generate password"
     exit /b 1
 )
 
-call :LogDebug "Password generated successfully"
+call "%LOG%" debug "Password generated successfully"
 exit /b 0
 
 :DownloadTightVNC
 set "INSTALLER_PATH=%TEMP%\tightvnc-setup.msi"
-call :LogInfo "Downloading TightVNC installer..."
+call "%LOG%" info "Downloading TightVNC installer..."
 
 if exist "%INSTALLER_PATH%" del "%INSTALLER_PATH%" 2>nul
 
@@ -218,20 +176,20 @@ if "%DRY_RUN%"=="1" (
 
 powershell -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri '%TIGHTVNC_URL%' -OutFile '%INSTALLER_PATH%' -UseBasicParsing"
 if errorlevel 1 (
-    call :LogError "Failed to download TightVNC installer"
+    call "%LOG%" error "Failed to download TightVNC installer"
     exit /b 1
 )
 
 if not exist "%INSTALLER_PATH%" (
-    call :LogError "Installer file not found after download"
+    call "%LOG%" error "Installer file not found after download"
     exit /b 1
 )
-call :LogSuccess "Download complete"
+call "%LOG%" success "Download complete"
 exit /b 0
 
 :InstallTightVNC
 set "INSTALLER_PATH=%TEMP%\tightvnc-setup.msi"
-call :LogInfo "Installing TightVNC..."
+call "%LOG%" info "Installing TightVNC..."
 
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would install TightVNC with generated password
@@ -245,21 +203,21 @@ set "MSI_ARGS=%MSI_ARGS% SET_PASSWORD=1 VALUE_OF_PASSWORD=%VNC_PASSWORD%"
 set "MSI_ARGS=%MSI_ARGS% SET_USECONTROLAUTHENTICATION=1 VALUE_OF_CONTROLPASSWORD=%VNC_PASSWORD%"
 set "MSI_ARGS=%MSI_ARGS% SET_ALLOWLOOPBACK=1 VALUE_OF_ALLOWLOOPBACK=1"
 
-call :LogDebug "Running MSI installer..."
+call "%LOG%" debug "Running MSI installer..."
 msiexec /i "%INSTALLER_PATH%" %MSI_ARGS%
 set "MSI_RESULT=%ERRORLEVEL%"
 
 if %MSI_RESULT% EQU 0 (
-    call :LogSuccess "TightVNC installed successfully"
+    call "%LOG%" success "TightVNC installed successfully"
 ) else if %MSI_RESULT% EQU 3010 (
-    call :LogSuccess "TightVNC installed (reboot may be required)"
+    call "%LOG%" success "TightVNC installed (reboot may be required)"
 ) else (
-    call :LogError "TightVNC installation failed (code: %MSI_RESULT%)"
+    call "%LOG%" error "TightVNC installation failed (code: %MSI_RESULT%)"
     exit /b 1
 )
 
 :: Wait for service registration
-call :LogDebug "Waiting for service registration..."
+call "%LOG%" debug "Waiting for service registration..."
 set "WAIT_COUNT=0"
 :WaitForServiceReg
 sc query %TIGHTVNC_SERVICE% >nul 2>&1
@@ -267,19 +225,19 @@ if %ERRORLEVEL% EQU 0 goto :ServiceRegistered
 timeout /t 2 /nobreak >nul
 set /a "WAIT_COUNT+=1"
 if %WAIT_COUNT% GTR 30 (
-    call :LogError "Timeout waiting for TightVNC service registration"
+    call "%LOG%" error "Timeout waiting for TightVNC service registration"
     exit /b 1
 )
 goto :WaitForServiceReg
 
 :ServiceRegistered
-call :LogDebug "Service registered successfully"
+call "%LOG%" debug "Service registered successfully"
 call :StartTightVNCService
 del "%INSTALLER_PATH%" 2>nul
 exit /b 0
 
 :SaveCredentials
-call :LogInfo "Saving VNC credentials..."
+call "%LOG%" info "Saving VNC credentials..."
 
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would save credentials to: %CREDENTIALS_FILE%
@@ -313,11 +271,11 @@ if exist "%TAILSCALE_EXE%" (
     echo ============================================================
 ) > "%CREDENTIALS_FILE%"
 
-call :LogDebug "Credentials saved to: %CREDENTIALS_FILE%"
+call "%LOG%" debug "Credentials saved to: %CREDENTIALS_FILE%"
 exit /b 0
 
 :VerifyInstallation
-call :LogInfo "Verifying TightVNC installation..."
+call "%LOG%" info "Verifying TightVNC installation..."
 
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would verify TightVNC installation
@@ -325,21 +283,21 @@ if "%DRY_RUN%"=="1" (
 )
 
 if not exist "%TIGHTVNC_DIR%\tvnserver.exe" (
-    call :LogError "TightVNC executable not found"
+    call "%LOG%" error "TightVNC executable not found"
     exit /b 1
 )
-call :LogDebug "Executable exists: OK"
+call "%LOG%" debug "Executable exists: OK"
 
 sc query %TIGHTVNC_SERVICE% | findstr "RUNNING" >nul 2>&1
 if errorlevel 1 (
-    call :LogWarn "TightVNC service is not running"
+    call "%LOG%" warn "TightVNC service is not running"
     call :StartTightVNCService
     if errorlevel 1 (
-        call :LogError "Could not start TightVNC service"
+        call "%LOG%" error "Could not start TightVNC service"
         exit /b 1
     )
 )
-call :LogDebug "Service running: OK"
+call "%LOG%" debug "Service running: OK"
 
 :: Check VNC port is listening
 set "WAIT_COUNT=0"
@@ -349,14 +307,14 @@ if %ERRORLEVEL% EQU 0 goto :PortListening
 timeout /t 2 /nobreak >nul
 set /a "WAIT_COUNT+=1"
 if %WAIT_COUNT% GTR 15 (
-    call :LogError "VNC port %VNC_PORT% is not listening"
+    call "%LOG%" error "VNC port %VNC_PORT% is not listening"
     exit /b 1
 )
 goto :WaitForPort
 
 :PortListening
-call :LogDebug "Port %VNC_PORT% listening: OK"
-call :LogSuccess "TightVNC verification passed"
+call "%LOG%" debug "Port %VNC_PORT% listening: OK"
+call "%LOG%" success "TightVNC verification passed"
 exit /b 0
 
 :MarkInstalled

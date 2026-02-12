@@ -30,18 +30,18 @@ goto :ParseArgs
 :: ============================================================================
 :: MAIN EXECUTION
 :: ============================================================================
-call :LogSection "Chrome Browser Hardening"
+call "%LOG%" section "Chrome Browser Hardening"
 
 :: Check for admin privileges
-call :CheckAdmin
+call "%ADMIN%"
 if errorlevel 1 (
-    call :LogError "Administrator privileges required"
+    call "%LOG%" error "Administrator privileges required"
     exit /b %EXIT_PREREQ_FAILED%
 )
 
 :: Check if Chrome is installed
 if not exist "%CHROME_EXE%" (
-    call :LogWarn "Google Chrome is not installed, skipping hardening"
+    call "%LOG%" warn "Google Chrome is not installed, skipping hardening"
     exit /b %EXIT_PARTIAL_SUCCESS%
 )
 
@@ -49,8 +49,8 @@ if not exist "%CHROME_EXE%" (
 reg query "%SETUP_REG_KEY%" /v "ChromeHardened" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     if not "%FORCE%"=="1" (
-        call :LogInfo "Chrome hardening already applied"
-        call :LogSuccess "Chrome hardening is in place"
+        call "%LOG%" info "Chrome hardening already applied"
+        call "%LOG%" success "Chrome hardening is in place"
         exit /b %EXIT_SUCCESS%
     )
 )
@@ -68,66 +68,23 @@ if errorlevel 1 set /a "HARDEN_ERRORS+=1"
 call :MarkHardened
 
 if %HARDEN_ERRORS% GTR 0 (
-    call :LogWarn "Chrome hardening completed with %HARDEN_ERRORS% error(s)"
+    call "%LOG%" warn "Chrome hardening completed with %HARDEN_ERRORS% error(s)"
     exit /b %EXIT_PARTIAL_SUCCESS%
 )
 
-call :LogSuccess "Chrome hardening completed successfully"
+call "%LOG%" success "Chrome hardening completed successfully"
 exit /b %EXIT_SUCCESS%
 
 :: ============================================================================
 :: FUNCTIONS
 :: ============================================================================
 
-:LogSection
-echo.
-echo ============================================================
-echo %~1
-echo ============================================================
-if defined LOG_FILE (
-    echo. >> "%LOG_FILE%"
-    echo ============================================================ >> "%LOG_FILE%"
-    echo %~1 >> "%LOG_FILE%"
-    echo ============================================================ >> "%LOG_FILE%"
-)
-goto :eof
-
-:LogInfo
-echo [INFO] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [INFO] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogError
-echo [ERROR] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [ERROR] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogSuccess
-echo [OK] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [OK] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogDebug
-if "%VERBOSE%"=="1" echo [DEBUG] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [DEBUG] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogWarn
-echo [WARN] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [WARN] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:CheckAdmin
-net session >nul 2>&1
-if errorlevel 1 exit /b 1
-exit /b 0
-
 :: ============================================================================
 :: FORCE-INSTALL EXTENSIONS
 :: ============================================================================
 
 :ForceInstallExtensions
-call :LogInfo "Force-installing Chrome extensions..."
+call "%LOG%" info "Force-installing Chrome extensions..."
 
 set "EXT_KEY=HKLM\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist"
 set "UBLOCK_VALUE=%EXT_UBLOCK%;https://clients2.google.com/service/update2/crx"
@@ -141,11 +98,11 @@ if "%DRY_RUN%"=="1" (
 
 reg add "%EXT_KEY%" /v "1" /t REG_SZ /d "%UBLOCK_VALUE%" /f >nul 2>&1
 if errorlevel 1 (
-    call :LogError "Failed to add uBlock Origin to force-install list"
+    call "%LOG%" error "Failed to add uBlock Origin to force-install list"
     exit /b 1
 )
 
-call :LogSuccess "uBlock Origin added to force-install list"
+call "%LOG%" success "uBlock Origin added to force-install list"
 exit /b 0
 
 :: ============================================================================
@@ -153,7 +110,7 @@ exit /b 0
 :: ============================================================================
 
 :ApplyChromePolicies
-call :LogInfo "Applying Chrome browser policies..."
+call "%LOG%" info "Applying Chrome browser policies..."
 
 set "CHROME_KEY=HKLM\SOFTWARE\Policies\Google\Chrome"
 
@@ -200,11 +157,11 @@ reg add "%CHROME_KEY%" /v "HomepageLocation" /t REG_SZ /d "https://www.google.co
 if errorlevel 1 set /a "POLICY_ERRORS+=1"
 
 if %POLICY_ERRORS% GTR 0 (
-    call :LogError "Failed to apply %POLICY_ERRORS% Chrome policy(s)"
+    call "%LOG%" error "Failed to apply %POLICY_ERRORS% Chrome policy(s)"
     exit /b 1
 )
 
-call :LogSuccess "Chrome policies applied"
+call "%LOG%" success "Chrome policies applied"
 exit /b 0
 
 :: ============================================================================

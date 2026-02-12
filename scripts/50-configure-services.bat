@@ -30,12 +30,12 @@ goto :ParseArgs
 :: ============================================================================
 :: MAIN EXECUTION
 :: ============================================================================
-call :LogSection "Service Configuration"
+call "%LOG%" section "Service Configuration"
 
 :: Check for admin privileges
-call :CheckAdmin
+call "%ADMIN%"
 if errorlevel 1 (
-    call :LogError "Administrator privileges required"
+    call "%LOG%" error "Administrator privileges required"
     exit /b %EXIT_PREREQ_FAILED%
 )
 
@@ -54,56 +54,19 @@ if errorlevel 1 set /a "CONFIG_ERRORS+=1"
 call :MarkConfigured
 
 if %CONFIG_ERRORS% GTR 0 (
-    call :LogWarn "Service configuration completed with %CONFIG_ERRORS% warnings"
+    call "%LOG%" warn "Service configuration completed with %CONFIG_ERRORS% warnings"
     exit /b %EXIT_PARTIAL_SUCCESS%
 )
 
-call :LogSuccess "Service configuration completed successfully"
+call "%LOG%" success "Service configuration completed successfully"
 exit /b %EXIT_SUCCESS%
 
 :: ============================================================================
 :: FUNCTIONS
 :: ============================================================================
 
-:LogSection
-echo.
-echo ============================================================
-echo %~1
-echo ============================================================
-goto :eof
-
-:LogInfo
-echo [INFO] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [INFO] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogError
-echo [ERROR] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [ERROR] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogSuccess
-echo [OK] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [OK] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogDebug
-if "%VERBOSE%"=="1" echo [DEBUG] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [DEBUG] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogWarn
-echo [WARN] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [WARN] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:CheckAdmin
-net session >nul 2>&1
-if errorlevel 1 exit /b 1
-exit /b 0
-
 :ConfigureTailscaleService
-call :LogInfo "Configuring Tailscale service..."
+call "%LOG%" info "Configuring Tailscale service..."
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would configure Tailscale service for auto-start and recovery
     exit /b 0
@@ -111,7 +74,7 @@ if "%DRY_RUN%"=="1" (
 
 sc query Tailscale >nul 2>&1
 if errorlevel 1 (
-    call :LogWarn "Tailscale service not found"
+    call "%LOG%" warn "Tailscale service not found"
     exit /b 1
 )
 
@@ -120,15 +83,15 @@ sc failure Tailscale reset= 86400 actions= restart/60000/restart/60000/restart/6
 
 sc query Tailscale | findstr "RUNNING" >nul 2>&1
 if errorlevel 1 (
-    call :LogDebug "Starting Tailscale service..."
+    call "%LOG%" debug "Starting Tailscale service..."
     net start Tailscale >nul 2>&1
 )
 
-call :LogSuccess "Tailscale service configured"
+call "%LOG%" success "Tailscale service configured"
 exit /b 0
 
 :ConfigureTightVNCService
-call :LogInfo "Configuring TightVNC service..."
+call "%LOG%" info "Configuring TightVNC service..."
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would configure TightVNC service for auto-start and recovery
     exit /b 0
@@ -136,7 +99,7 @@ if "%DRY_RUN%"=="1" (
 
 sc query %TIGHTVNC_SERVICE% >nul 2>&1
 if errorlevel 1 (
-    call :LogWarn "TightVNC service not found"
+    call "%LOG%" warn "TightVNC service not found"
     exit /b 1
 )
 
@@ -145,15 +108,15 @@ sc failure %TIGHTVNC_SERVICE% reset= 86400 actions= restart/60000/restart/60000/
 
 sc query %TIGHTVNC_SERVICE% | findstr "RUNNING" >nul 2>&1
 if errorlevel 1 (
-    call :LogDebug "Starting TightVNC service..."
+    call "%LOG%" debug "Starting TightVNC service..."
     net start %TIGHTVNC_SERVICE% >nul 2>&1
 )
 
-call :LogSuccess "TightVNC service configured"
+call "%LOG%" success "TightVNC service configured"
 exit /b 0
 
 :VerifyServiceConfiguration
-call :LogInfo "Verifying service configuration..."
+call "%LOG%" info "Verifying service configuration..."
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would verify service configuration
     exit /b 0
@@ -163,24 +126,24 @@ set "VERIFY_PASSED=1"
 
 sc qc Tailscale 2>nul | findstr "AUTO_START" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    call :LogDebug "Tailscale startup type: AUTO (OK)"
+    call "%LOG%" debug "Tailscale startup type: AUTO (OK)"
 ) else (
-    call :LogWarn "Tailscale may not auto-start"
+    call "%LOG%" warn "Tailscale may not auto-start"
     set "VERIFY_PASSED=0"
 )
 
 sc qc %TIGHTVNC_SERVICE% 2>nul | findstr "AUTO_START" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    call :LogDebug "TightVNC startup type: AUTO (OK)"
+    call "%LOG%" debug "TightVNC startup type: AUTO (OK)"
 ) else (
-    call :LogWarn "TightVNC may not auto-start"
+    call "%LOG%" warn "TightVNC may not auto-start"
     set "VERIFY_PASSED=0"
 )
 
 if "%VERIFY_PASSED%"=="0" (
     exit /b 1
 )
-call :LogSuccess "Service verification passed"
+call "%LOG%" success "Service verification passed"
 exit /b 0
 
 :MarkConfigured

@@ -30,12 +30,12 @@ goto :ParseArgs
 :: ============================================================================
 :: MAIN EXECUTION
 :: ============================================================================
-call :LogSection "Desktop and Start Menu Customization"
+call "%LOG%" section "Desktop and Start Menu Customization"
 
 :: Check for admin privileges
-call :CheckAdmin
+call "%ADMIN%"
 if errorlevel 1 (
-    call :LogError "Administrator privileges required"
+    call "%LOG%" error "Administrator privileges required"
     exit /b %EXIT_PREREQ_FAILED%
 )
 
@@ -43,8 +43,8 @@ if errorlevel 1 (
 reg query "%SETUP_REG_KEY%" /v "DesktopCustomized" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     if not "%FORCE%"=="1" (
-        call :LogInfo "Desktop already customized"
-        call :LogSuccess "Desktop customization is in place"
+        call "%LOG%" info "Desktop already customized"
+        call "%LOG%" success "Desktop customization is in place"
         exit /b %EXIT_SUCCESS%
     )
 )
@@ -60,66 +60,23 @@ if errorlevel 1 set /a "CUSTOM_ERRORS+=1"
 call :MarkCustomized
 
 if %CUSTOM_ERRORS% GTR 0 (
-    call :LogWarn "Desktop customization completed with %CUSTOM_ERRORS% error(s)"
+    call "%LOG%" warn "Desktop customization completed with %CUSTOM_ERRORS% error(s)"
     exit /b %EXIT_PARTIAL_SUCCESS%
 )
 
-call :LogSuccess "Desktop customization completed successfully"
+call "%LOG%" success "Desktop customization completed successfully"
 exit /b %EXIT_SUCCESS%
 
 :: ============================================================================
 :: FUNCTIONS
 :: ============================================================================
 
-:LogSection
-echo.
-echo ============================================================
-echo %~1
-echo ============================================================
-if defined LOG_FILE (
-    echo. >> "%LOG_FILE%"
-    echo ============================================================ >> "%LOG_FILE%"
-    echo %~1 >> "%LOG_FILE%"
-    echo ============================================================ >> "%LOG_FILE%"
-)
-goto :eof
-
-:LogInfo
-echo [INFO] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [INFO] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogError
-echo [ERROR] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [ERROR] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogSuccess
-echo [OK] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [OK] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogDebug
-if "%VERBOSE%"=="1" echo [DEBUG] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [DEBUG] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogWarn
-echo [WARN] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [WARN] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:CheckAdmin
-net session >nul 2>&1
-if errorlevel 1 exit /b 1
-exit /b 0
-
 :: ============================================================================
 :: REMOVE BLOATWARE PINS
 :: ============================================================================
 
 :RemoveBloatwarePins
-call :LogInfo "Removing bloatware Start menu pins..."
+call "%LOG%" info "Removing bloatware Start menu pins..."
 
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would remove provisioned appx packages (bloatware):
@@ -143,12 +100,12 @@ set "BLOAT_PACKAGES=%BLOAT_PACKAGES% Microsoft.ZuneMusic Microsoft.ZuneVideo"
 set "BLOAT_PACKAGES=%BLOAT_PACKAGES% Microsoft.OutlookForWindows"
 
 for %%P in (%BLOAT_PACKAGES%) do (
-    call :LogDebug "Removing: %%P"
+    call "%LOG%" debug "Removing: %%P"
     powershell -NoProfile -Command "Get-AppxPackage -AllUsers '%%P' | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue" >nul 2>&1
     powershell -NoProfile -Command "Get-AppxProvisionedPackage -Online | Where-Object DisplayName -eq '%%P' | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue" >nul 2>&1
 )
 
-call :LogSuccess "Bloatware packages removed"
+call "%LOG%" success "Bloatware packages removed"
 exit /b 0
 
 :: ============================================================================
@@ -156,7 +113,7 @@ exit /b 0
 :: ============================================================================
 
 :CreateDesktopShortcuts
-call :LogInfo "Creating desktop shortcuts..."
+call "%LOG%" info "Creating desktop shortcuts..."
 
 set "PUBLIC_DESKTOP=C:\Users\Public\Desktop"
 
@@ -176,15 +133,15 @@ if exist "%CHROME_EXE%" (
             "$s.TargetPath = '%CHROME_EXE%'; " ^
             "$s.Save()"
         if errorlevel 1 (
-            call :LogWarn "Failed to create Chrome desktop shortcut"
+            call "%LOG%" warn "Failed to create Chrome desktop shortcut"
         ) else (
-            call :LogDebug "Created Chrome desktop shortcut"
+            call "%LOG%" debug "Created Chrome desktop shortcut"
         )
     ) else (
-        call :LogDebug "Chrome shortcut already exists"
+        call "%LOG%" debug "Chrome shortcut already exists"
     )
 ) else (
-    call :LogDebug "Chrome not installed, skipping shortcut"
+    call "%LOG%" debug "Chrome not installed, skipping shortcut"
 )
 
 :: Create iTunes shortcut
@@ -196,18 +153,18 @@ if exist "%ITUNES_EXE%" (
             "$s.TargetPath = '%ITUNES_EXE%'; " ^
             "$s.Save()"
         if errorlevel 1 (
-            call :LogWarn "Failed to create iTunes desktop shortcut"
+            call "%LOG%" warn "Failed to create iTunes desktop shortcut"
         ) else (
-            call :LogDebug "Created iTunes desktop shortcut"
+            call "%LOG%" debug "Created iTunes desktop shortcut"
         )
     ) else (
-        call :LogDebug "iTunes shortcut already exists"
+        call "%LOG%" debug "iTunes shortcut already exists"
     )
 ) else (
-    call :LogDebug "iTunes not installed, skipping shortcut"
+    call "%LOG%" debug "iTunes not installed, skipping shortcut"
 )
 
-call :LogSuccess "Desktop shortcuts created"
+call "%LOG%" success "Desktop shortcuts created"
 exit /b 0
 
 :: ============================================================================

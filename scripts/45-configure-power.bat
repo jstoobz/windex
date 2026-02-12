@@ -30,12 +30,12 @@ goto :ParseArgs
 :: ============================================================================
 :: MAIN EXECUTION
 :: ============================================================================
-call :LogSection "Power and Update Configuration"
+call "%LOG%" section "Power and Update Configuration"
 
 :: Check for admin privileges
-call :CheckAdmin
+call "%ADMIN%"
 if errorlevel 1 (
-    call :LogError "Administrator privileges required"
+    call "%LOG%" error "Administrator privileges required"
     exit /b %EXIT_PREREQ_FAILED%
 )
 
@@ -43,8 +43,8 @@ if errorlevel 1 (
 reg query "%SETUP_REG_KEY%" /v "PowerConfigured" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     if not "%FORCE%"=="1" (
-        call :LogInfo "Power settings already configured"
-        call :LogSuccess "Power configuration is in place"
+        call "%LOG%" info "Power settings already configured"
+        call "%LOG%" success "Power configuration is in place"
         exit /b %EXIT_SUCCESS%
     )
 )
@@ -60,66 +60,23 @@ if errorlevel 1 set /a "CONFIG_ERRORS+=1"
 call :MarkConfigured
 
 if %CONFIG_ERRORS% GTR 0 (
-    call :LogWarn "Power configuration completed with %CONFIG_ERRORS% error(s)"
+    call "%LOG%" warn "Power configuration completed with %CONFIG_ERRORS% error(s)"
     exit /b %EXIT_PARTIAL_SUCCESS%
 )
 
-call :LogSuccess "Power and update configuration completed successfully"
+call "%LOG%" success "Power and update configuration completed successfully"
 exit /b %EXIT_SUCCESS%
 
 :: ============================================================================
 :: FUNCTIONS
 :: ============================================================================
 
-:LogSection
-echo.
-echo ============================================================
-echo %~1
-echo ============================================================
-if defined LOG_FILE (
-    echo. >> "%LOG_FILE%"
-    echo ============================================================ >> "%LOG_FILE%"
-    echo %~1 >> "%LOG_FILE%"
-    echo ============================================================ >> "%LOG_FILE%"
-)
-goto :eof
-
-:LogInfo
-echo [INFO] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [INFO] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogError
-echo [ERROR] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [ERROR] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogSuccess
-echo [OK] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [OK] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogDebug
-if "%VERBOSE%"=="1" echo [DEBUG] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [DEBUG] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogWarn
-echo [WARN] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [WARN] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:CheckAdmin
-net session >nul 2>&1
-if errorlevel 1 exit /b 1
-exit /b 0
-
 :: ============================================================================
 :: POWER PLAN
 :: ============================================================================
 
 :ConfigurePowerPlan
-call :LogInfo "Configuring power plan..."
+call "%LOG%" info "Configuring power plan..."
 
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would set AC sleep timeout to 0 (never)
@@ -132,27 +89,27 @@ if "%DRY_RUN%"=="1" (
 
 :: Never sleep on AC (critical for remote access)
 powercfg /change standby-timeout-ac 0
-call :LogDebug "AC sleep: never"
+call "%LOG%" debug "AC sleep: never"
 
 :: Sleep after 30 min on battery
 powercfg /change standby-timeout-dc 30
-call :LogDebug "Battery sleep: 30 min"
+call "%LOG%" debug "Battery sleep: 30 min"
 
 :: Display timeout: 60 min on AC, 10 min on battery
 powercfg /change monitor-timeout-ac 60
 powercfg /change monitor-timeout-dc 10
-call :LogDebug "Display timeout: 60 min AC, 10 min battery"
+call "%LOG%" debug "Display timeout: 60 min AC, 10 min battery"
 
 :: Disable hibernate (saves disk space, not needed with remote access)
 powercfg /hibernate off
-call :LogDebug "Hibernate: off"
+call "%LOG%" debug "Hibernate: off"
 
 :: Ensure lid close on AC does nothing (laptop stays on when lid closed)
 powercfg /setacvalueindex scheme_current sub_buttons lidaction 0
 powercfg /setactive scheme_current
-call :LogDebug "Lid close on AC: do nothing"
+call "%LOG%" debug "Lid close on AC: do nothing"
 
-call :LogSuccess "Power plan configured"
+call "%LOG%" success "Power plan configured"
 exit /b 0
 
 :: ============================================================================
@@ -160,7 +117,7 @@ exit /b 0
 :: ============================================================================
 
 :ConfigureUpdateHours
-call :LogInfo "Setting Windows Update active hours..."
+call "%LOG%" info "Setting Windows Update active hours..."
 
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would set active hours: 8:00 - 23:00
@@ -178,11 +135,11 @@ reg add "%UPDATE_KEY%" /v "ActiveHoursEnd" /t REG_DWORD /d 23 /f >nul 2>&1
 reg add "%UPDATE_KEY%" /v "IsActiveHoursEnabled" /t REG_DWORD /d 1 /f >nul 2>&1
 
 if errorlevel 1 (
-    call :LogError "Failed to set Windows Update active hours"
+    call "%LOG%" error "Failed to set Windows Update active hours"
     exit /b 1
 )
 
-call :LogSuccess "Windows Update active hours set (8:00 - 23:00)"
+call "%LOG%" success "Windows Update active hours set (8:00 - 23:00)"
 exit /b 0
 
 :: ============================================================================

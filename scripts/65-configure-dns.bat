@@ -30,12 +30,12 @@ goto :ParseArgs
 :: ============================================================================
 :: MAIN EXECUTION
 :: ============================================================================
-call :LogSection "DNS Filtering Configuration"
+call "%LOG%" section "DNS Filtering Configuration"
 
 :: Check for admin privileges
-call :CheckAdmin
+call "%ADMIN%"
 if errorlevel 1 (
-    call :LogError "Administrator privileges required"
+    call "%LOG%" error "Administrator privileges required"
     exit /b %EXIT_PREREQ_FAILED%
 )
 
@@ -43,76 +43,33 @@ if errorlevel 1 (
 reg query "%SETUP_REG_KEY%" /v "DnsConfigured" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     if not "%FORCE%"=="1" (
-        call :LogInfo "DNS filtering already configured"
-        call :LogSuccess "DNS configuration is in place"
+        call "%LOG%" info "DNS filtering already configured"
+        call "%LOG%" success "DNS configuration is in place"
         exit /b %EXIT_SUCCESS%
     )
 )
 
 call :ConfigureDns
 if errorlevel 1 (
-    call :LogError "DNS configuration failed"
+    call "%LOG%" error "DNS configuration failed"
     exit /b %EXIT_EXECUTION_FAILED%
 )
 
 call :MarkConfigured
 
-call :LogSuccess "DNS filtering configured successfully"
+call "%LOG%" success "DNS filtering configured successfully"
 exit /b %EXIT_SUCCESS%
 
 :: ============================================================================
 :: FUNCTIONS
 :: ============================================================================
 
-:LogSection
-echo.
-echo ============================================================
-echo %~1
-echo ============================================================
-if defined LOG_FILE (
-    echo. >> "%LOG_FILE%"
-    echo ============================================================ >> "%LOG_FILE%"
-    echo %~1 >> "%LOG_FILE%"
-    echo ============================================================ >> "%LOG_FILE%"
-)
-goto :eof
-
-:LogInfo
-echo [INFO] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [INFO] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogError
-echo [ERROR] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [ERROR] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogSuccess
-echo [OK] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [OK] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogDebug
-if "%VERBOSE%"=="1" echo [DEBUG] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [DEBUG] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogWarn
-echo [WARN] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [WARN] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:CheckAdmin
-net session >nul 2>&1
-if errorlevel 1 exit /b 1
-exit /b 0
-
 :: ============================================================================
 :: DNS CONFIGURATION
 :: ============================================================================
 
 :ConfigureDns
-call :LogInfo "Setting DNS to %DNS_PRIMARY% / %DNS_SECONDARY% on all adapters..."
+call "%LOG%" info "Setting DNS to %DNS_PRIMARY% / %DNS_SECONDARY% on all adapters..."
 
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would set DNS on all active network adapters:
@@ -131,22 +88,22 @@ powershell -NoProfile -Command ^
     "  Write-Host \"  Set DNS on: $($a.Name)\"; " ^
     "}"
 if errorlevel 1 (
-    call :LogError "Failed to set DNS via PowerShell"
+    call "%LOG%" error "Failed to set DNS via PowerShell"
     exit /b 1
 )
 
 :: Verify by checking current DNS
-call :LogDebug "Verifying DNS settings..."
+call "%LOG%" debug "Verifying DNS settings..."
 powershell -NoProfile -Command ^
     "Get-DnsClientServerAddress -AddressFamily IPv4 | " ^
     "Where-Object { $_.ServerAddresses -contains '%DNS_PRIMARY%' } | " ^
     "Select-Object -First 1 | Out-Null; " ^
     "if ($?) { exit 0 } else { exit 1 }"
 if errorlevel 1 (
-    call :LogWarn "DNS verification: could not confirm settings applied"
+    call "%LOG%" warn "DNS verification: could not confirm settings applied"
 )
 
-call :LogSuccess "DNS filtering set to Cloudflare Family (%DNS_PRIMARY% / %DNS_SECONDARY%)"
+call "%LOG%" success "DNS filtering set to Cloudflare Family (%DNS_PRIMARY% / %DNS_SECONDARY%)"
 exit /b 0
 
 :: ============================================================================

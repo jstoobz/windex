@@ -103,10 +103,10 @@ goto :ParseArgs
 call :ShowBanner
 
 :: Check for admin privileges
-call :CheckAdmin
+call "%ADMIN%"
 if errorlevel 1 (
-    call :LogError "Administrator privileges required"
-    call :LogInfo "Please right-click and select 'Run as administrator'"
+    call "%LOG%" error "Administrator privileges required"
+    call "%LOG%" info "Please right-click and select 'Run as administrator'"
     pause
     exit /b %EXIT_PREREQ_FAILED%
 )
@@ -114,7 +114,7 @@ if errorlevel 1 (
 :: Validate auth key
 if "%TAILSCALE_AUTHKEY%"=="" (
     if "%SKIP_TAILSCALE%"=="0" (
-        call :LogError "Tailscale auth key is required"
+        call "%LOG%" error "Tailscale auth key is required"
         echo.
         echo Usage: %~nx0 --authkey=tskey-auth-xxxxx [options]
         echo.
@@ -134,7 +134,7 @@ if "%FORCE%"=="0" (
     if "%DRY_RUN%"=="0" (
         call :ConfirmSetup
         if errorlevel 1 (
-            call :LogInfo "Setup cancelled by user"
+            call "%LOG%" info "Setup cancelled by user"
             exit /b %EXIT_CANCELLED%
         )
     )
@@ -297,7 +297,7 @@ if %VERIFY_RESULT% NEQ 0 (
 exit /b %EXIT_SUCCESS%
 
 :SetupFailed
-call :LogError "Setup failed at step"
+call "%LOG%" error "Setup failed at step"
 call :ShowSummary
 exit /b %EXIT_EXECUTION_FAILED%
 
@@ -316,26 +316,6 @@ if "%DRY_RUN%"=="1" (
     echo   *** DRY-RUN MODE - No changes will be made ***
     echo.
 )
-goto :eof
-
-:CheckAdmin
-net session >nul 2>&1
-if errorlevel 1 exit /b 1
-exit /b 0
-
-:LogInfo
-echo [INFO] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [INFO] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogError
-echo [ERROR] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [ERROR] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogSuccess
-echo [OK] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [OK] %~1 >> "%LOG_FILE%"
 goto :eof
 
 :ConfirmSetup

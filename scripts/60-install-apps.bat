@@ -30,12 +30,12 @@ goto :ParseArgs
 :: ============================================================================
 :: MAIN EXECUTION
 :: ============================================================================
-call :LogSection "Essential Application Installation"
+call "%LOG%" section "Essential Application Installation"
 
 :: Check for admin privileges
-call :CheckAdmin
+call "%ADMIN%"
 if errorlevel 1 (
-    call :LogError "Administrator privileges required"
+    call "%LOG%" error "Administrator privileges required"
     exit /b %EXIT_PREREQ_FAILED%
 )
 
@@ -43,8 +43,8 @@ if errorlevel 1 (
 reg query "%SETUP_REG_KEY%" /v "AppsInstalled" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     if not "%FORCE%"=="1" (
-        call :LogInfo "Essential apps already installed"
-        call :LogSuccess "App installation is complete"
+        call "%LOG%" info "Essential apps already installed"
+        call "%LOG%" success "App installation is complete"
         exit /b %EXIT_SUCCESS%
     )
 )
@@ -65,70 +65,27 @@ if errorlevel 1 set /a "APP_ERRORS+=1"
 call :MarkInstalled
 
 if %APP_ERRORS% GTR 0 (
-    call :LogWarn "App installation completed with %APP_ERRORS% error(s)"
+    call "%LOG%" warn "App installation completed with %APP_ERRORS% error(s)"
     exit /b %EXIT_PARTIAL_SUCCESS%
 )
 
-call :LogSuccess "All essential apps installed successfully"
+call "%LOG%" success "All essential apps installed successfully"
 exit /b %EXIT_SUCCESS%
 
 :: ============================================================================
 :: FUNCTIONS
 :: ============================================================================
 
-:LogSection
-echo.
-echo ============================================================
-echo %~1
-echo ============================================================
-if defined LOG_FILE (
-    echo. >> "%LOG_FILE%"
-    echo ============================================================ >> "%LOG_FILE%"
-    echo %~1 >> "%LOG_FILE%"
-    echo ============================================================ >> "%LOG_FILE%"
-)
-goto :eof
-
-:LogInfo
-echo [INFO] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [INFO] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogError
-echo [ERROR] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [ERROR] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogSuccess
-echo [OK] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [OK] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogDebug
-if "%VERBOSE%"=="1" echo [DEBUG] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [DEBUG] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:LogWarn
-echo [WARN] %~1
-if defined LOG_FILE echo [%DATE% %TIME%] [WARN] %~1 >> "%LOG_FILE%"
-goto :eof
-
-:CheckAdmin
-net session >nul 2>&1
-if errorlevel 1 exit /b 1
-exit /b 0
-
 :: ============================================================================
 :: CHROME
 :: ============================================================================
 
 :InstallChrome
-call :LogInfo "Installing Google Chrome..."
+call "%LOG%" info "Installing Google Chrome..."
 
 if exist "%CHROME_EXE%" (
-    call :LogInfo "Google Chrome is already installed"
-    call :LogSuccess "Chrome: OK"
+    call "%LOG%" info "Google Chrome is already installed"
+    call "%LOG%" success "Chrome: OK"
     exit /b 0
 )
 
@@ -137,20 +94,20 @@ if "%DRY_RUN%"=="1" (
     exit /b 0
 )
 
-call :LogDebug "Running winget install for Google Chrome..."
+call "%LOG%" debug "Running winget install for Google Chrome..."
 winget install --id Google.Chrome --exact --silent --accept-package-agreements --accept-source-agreements
 if errorlevel 1 (
-    call :LogError "Failed to install Google Chrome via winget"
+    call "%LOG%" error "Failed to install Google Chrome via winget"
     exit /b 1
 )
 
 :: Verify
 if exist "%CHROME_EXE%" (
-    call :LogSuccess "Google Chrome installed successfully"
+    call "%LOG%" success "Google Chrome installed successfully"
     exit /b 0
 )
 
-call :LogError "Chrome executable not found after install"
+call "%LOG%" error "Chrome executable not found after install"
 exit /b 1
 
 :: ============================================================================
@@ -158,11 +115,11 @@ exit /b 1
 :: ============================================================================
 
 :InstallITunes
-call :LogInfo "Installing Apple iTunes..."
+call "%LOG%" info "Installing Apple iTunes..."
 
 if exist "%ITUNES_EXE%" (
-    call :LogInfo "Apple iTunes is already installed"
-    call :LogSuccess "iTunes: OK"
+    call "%LOG%" info "Apple iTunes is already installed"
+    call "%LOG%" success "iTunes: OK"
     exit /b 0
 )
 
@@ -171,20 +128,20 @@ if "%DRY_RUN%"=="1" (
     exit /b 0
 )
 
-call :LogDebug "Running winget install for Apple iTunes..."
+call "%LOG%" debug "Running winget install for Apple iTunes..."
 winget install --id Apple.iTunes --exact --silent --accept-package-agreements --accept-source-agreements
 if errorlevel 1 (
-    call :LogError "Failed to install Apple iTunes via winget"
+    call "%LOG%" error "Failed to install Apple iTunes via winget"
     exit /b 1
 )
 
 :: Verify
 if exist "%ITUNES_EXE%" (
-    call :LogSuccess "Apple iTunes installed successfully"
+    call "%LOG%" success "Apple iTunes installed successfully"
     exit /b 0
 )
 
-call :LogError "iTunes executable not found after install"
+call "%LOG%" error "iTunes executable not found after install"
 exit /b 1
 
 :: ============================================================================
@@ -192,11 +149,11 @@ exit /b 1
 :: ============================================================================
 
 :InstallMalwarebytes
-call :LogInfo "Installing Malwarebytes..."
+call "%LOG%" info "Installing Malwarebytes..."
 
 if exist "%MALWAREBYTES_EXE%" (
-    call :LogInfo "Malwarebytes is already installed"
-    call :LogSuccess "Malwarebytes: OK"
+    call "%LOG%" info "Malwarebytes is already installed"
+    call "%LOG%" success "Malwarebytes: OK"
     exit /b 0
 )
 
@@ -205,20 +162,20 @@ if "%DRY_RUN%"=="1" (
     exit /b 0
 )
 
-call :LogDebug "Running winget install for Malwarebytes..."
+call "%LOG%" debug "Running winget install for Malwarebytes..."
 winget install --id Malwarebytes.Malwarebytes --exact --silent --accept-package-agreements --accept-source-agreements
 if errorlevel 1 (
-    call :LogError "Failed to install Malwarebytes via winget"
+    call "%LOG%" error "Failed to install Malwarebytes via winget"
     exit /b 1
 )
 
 :: Verify
 if exist "%MALWAREBYTES_EXE%" (
-    call :LogSuccess "Malwarebytes installed successfully"
+    call "%LOG%" success "Malwarebytes installed successfully"
     exit /b 0
 )
 
-call :LogError "Malwarebytes executable not found after install"
+call "%LOG%" error "Malwarebytes executable not found after install"
 exit /b 1
 
 :: ============================================================================

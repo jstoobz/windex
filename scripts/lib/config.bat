@@ -24,6 +24,10 @@ set "LIB_DIR=%~dp0"
 :: Remove trailing backslash
 if "%LIB_DIR:~-1%"=="\" set "LIB_DIR=%LIB_DIR:~0,-1%"
 
+:: Shared utility scripts
+set "LOG=%LIB_DIR%\log.bat"
+set "ADMIN=%LIB_DIR%\admin.bat"
+
 :: Parent directories (scripts and base)
 for %%I in ("%LIB_DIR%\..") do set "SCRIPTS_DIR=%%~fI"
 for %%I in ("%SCRIPTS_DIR%\..") do set "BASE_DIR=%%~fI"
