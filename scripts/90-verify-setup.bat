@@ -41,6 +41,10 @@ call :VerifyTailscale
 call :VerifyTightVNC
 call :VerifyFirewall
 call :VerifyServices
+call :VerifyApps
+call :VerifyChromePolicies
+call :VerifyDns
+call :VerifyPowerSettings
 
 :: Generate summary
 call :GenerateSummary
@@ -204,6 +208,112 @@ if %ERRORLEVEL% EQU 0 (
     call :CheckPass "TightVNC set to auto-start"
 ) else (
     call :CheckWarn "TightVNC may not auto-start"
+)
+
+goto :eof
+
+:VerifyApps
+echo.
+echo Verifying Essential Apps...
+
+:: Check Chrome
+set /a "TOTAL_CHECKS+=1"
+if exist "%CHROME_EXE%" (
+    call :CheckPass "Google Chrome is installed"
+) else (
+    call :CheckFail "Google Chrome not found"
+)
+
+:: Check iTunes
+set /a "TOTAL_CHECKS+=1"
+if exist "%ITUNES_EXE%" (
+    call :CheckPass "Apple iTunes is installed"
+) else (
+    call :CheckFail "Apple iTunes not found"
+)
+
+:: Check Malwarebytes
+set /a "TOTAL_CHECKS+=1"
+if exist "%MALWAREBYTES_EXE%" (
+    call :CheckPass "Malwarebytes is installed"
+) else (
+    call :CheckFail "Malwarebytes not found"
+)
+
+goto :eof
+
+:VerifyChromePolicies
+echo.
+echo Verifying Chrome Policies...
+
+:: Check uBlock Origin force-install
+set /a "TOTAL_CHECKS+=1"
+reg query "HKLM\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist" /v "1" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call :CheckPass "uBlock Origin force-install key exists"
+) else (
+    call :CheckFail "uBlock Origin force-install key not found"
+)
+
+:: Check Safe Browsing
+set /a "TOTAL_CHECKS+=1"
+reg query "HKLM\SOFTWARE\Policies\Google\Chrome" /v "SafeBrowsingProtectionLevel" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call :CheckPass "Chrome Safe Browsing policy is set"
+) else (
+    call :CheckFail "Chrome Safe Browsing policy not found"
+)
+
+:: Check popup blocking
+set /a "TOTAL_CHECKS+=1"
+reg query "HKLM\SOFTWARE\Policies\Google\Chrome" /v "DefaultPopupsSetting" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call :CheckPass "Chrome popup blocking policy is set"
+) else (
+    call :CheckFail "Chrome popup blocking policy not found"
+)
+
+goto :eof
+
+:VerifyDns
+echo.
+echo Verifying DNS Configuration...
+
+set /a "TOTAL_CHECKS+=1"
+powershell -NoProfile -Command ^
+    "$dns = Get-DnsClientServerAddress -AddressFamily IPv4 | " ^
+    "Where-Object { $_.ServerAddresses -contains '%DNS_PRIMARY%' }; " ^
+    "if ($dns) { exit 0 } else { exit 1 }" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call :CheckPass "DNS filtering active (%DNS_PRIMARY%)"
+) else (
+    call :CheckWarn "DNS filtering not detected on any adapter"
+)
+
+goto :eof
+
+:VerifyPowerSettings
+echo.
+echo Verifying Power Settings...
+
+:: Check AC sleep timeout (should be 0 = never)
+set /a "TOTAL_CHECKS+=1"
+powershell -NoProfile -Command ^
+    "$p = powercfg /query scheme_current sub_sleep standby-timeout-ac 2>$null; " ^
+    "if ($p -match '0x00000000') { exit 0 } else { exit 1 }" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call :CheckPass "AC sleep disabled (never)"
+) else (
+    call :CheckWarn "AC sleep may not be disabled"
+)
+
+:: Check Windows Update active hours
+set /a "TOTAL_CHECKS+=1"
+reg query "HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" /v "IsActiveHoursEnabled" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call :CheckPass "Windows Update active hours configured"
+) else (
+    call :CheckWarn "Windows Update active hours not set"
 )
 
 goto :eof

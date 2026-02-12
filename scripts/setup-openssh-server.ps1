@@ -4,7 +4,16 @@
 # After this, the golden image supports SSH from the host via:
 #   ssh -i ~/.ssh/utm_vm -p 2222 <user>@localhost
 #
+# Usage:
+#   .\setup-openssh-server.ps1 -PubKeyFile C:\path\to\key.pub
+#   .\setup-openssh-server.ps1 -PubKey "ssh-ed25519 AAAA... comment"
+#
 # Run in an elevated PowerShell: Right-click PowerShell → Run as Administrator
+
+param(
+    [string]$PubKey = "",
+    [string]$PubKeyFile = ""
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -51,7 +60,20 @@ if ($fwRule) {
 }
 
 # Step 4: Set up key-based auth
-$pubKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK+ANVl7429UPEOO7C6y1a9Hn4Ycu05yoSVbRL6WgYbO utm-vm-automation"
+if ($PubKeyFile -and (Test-Path $PubKeyFile)) {
+    $PubKey = (Get-Content $PubKeyFile -Raw).Trim()
+    Write-Host "[OK] Loaded public key from $PubKeyFile" -ForegroundColor Green
+}
+if (-not $PubKey) {
+    Write-Host "[FAIL] No public key provided." -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Usage:"
+    Write-Host "  .\setup-openssh-server.ps1 -PubKeyFile C:\path\to\key.pub"
+    Write-Host "  .\setup-openssh-server.ps1 -PubKey 'ssh-ed25519 AAAA... comment'"
+    Write-Host ""
+    exit 1
+}
+$pubKeyComment = ($PubKey -split ' ')[-1]
 
 # For admin users, Windows uses administrators_authorized_keys
 $adminKeyFile = "C:\ProgramData\ssh\administrators_authorized_keys"
@@ -66,7 +88,7 @@ if (-not (Test-Path $sshDir)) {
 # Add key to user's authorized_keys
 if (Test-Path $userKeyFile) {
     $existing = Get-Content $userKeyFile -Raw
-    if ($existing -match "utm-vm-automation") {
+    if ($existing -match [regex]::Escape($pubKeyComment)) {
         Write-Host "[OK] Key already in $userKeyFile" -ForegroundColor Green
     } else {
         Add-Content -Path $userKeyFile -Value $pubKey
@@ -85,7 +107,7 @@ if (-not (Test-Path $sshProgramData)) {
 
 if (Test-Path $adminKeyFile) {
     $existing = Get-Content $adminKeyFile -Raw
-    if ($existing -match "utm-vm-automation") {
+    if ($existing -match [regex]::Escape($pubKeyComment)) {
         Write-Host "[OK] Key already in $adminKeyFile" -ForegroundColor Green
     } else {
         Add-Content -Path $adminKeyFile -Value $pubKey

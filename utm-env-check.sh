@@ -3,7 +3,9 @@ set -euo pipefail
 
 # utm-env-check.sh — Verify environment prerequisites for UTM VM testing
 
-VM_NAME="Win11-Golden"
+# Load shared configuration
+source "$(dirname "$0")/utm.conf"
+
 MIN_DISK_GB=10
 
 passed=0
@@ -51,21 +53,21 @@ else
 fi
 
 # 5. Scripts directory exists and has batch files
-bat_count=$(find "$HOME/utm/scripts" -maxdepth 1 -name "*.bat" 2>/dev/null | wc -l | tr -d ' ')
+bat_count=$(find "$SCRIPTS_DIR" -maxdepth 1 -name "*.bat" 2>/dev/null | wc -l | tr -d ' ')
 if (( bat_count > 0 )); then
     echo "  [PASS] Scripts directory: $bat_count .bat files found"
     ((passed++)) || true
 else
-    echo "  [FAIL] Scripts directory: no .bat files in ~/utm/scripts/"
+    echo "  [FAIL] Scripts directory: no .bat files in $SCRIPTS_DIR"
     ((failed++)) || true
 fi
 
 # 6. config.bat exists
-check "lib/config.bat exists" test -f "$HOME/utm/scripts/lib/config.bat"
+check "lib/config.bat exists" test -f "$SCRIPTS_DIR/lib/config.bat"
 
 # 7. test-results directory (create if missing)
-mkdir -p "$HOME/utm/test-results"
-check "test-results directory exists" test -d "$HOME/utm/test-results"
+mkdir -p "$RESULTS_DIR"
+check "test-results directory exists" test -d "$RESULTS_DIR"
 
 echo ""
 echo "============================================================"

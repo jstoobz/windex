@@ -56,6 +56,9 @@ After setup completes:
 
 :: Skip firewall configuration
 00-setup-master.bat --authkey=YOUR_KEY --skip-firewall
+
+:: Skip standard user creation
+00-setup-master.bat --authkey=YOUR_KEY --skip-user
 ```
 
 ### Verbose Output
@@ -74,7 +77,13 @@ Each component can be run separately:
 | `20-install-tightvnc.bat` | Install TightVNC with secure password |
 | `30-configure-firewall.bat` | Restrict VNC to Tailscale network |
 | `40-harden-system.bat` | Apply security hardening |
+| `45-configure-power.bat` | Power plan, sleep settings, update hours |
 | `50-configure-services.bat` | Configure auto-start and recovery |
+| `60-install-apps.bat` | Install Chrome, iTunes, Malwarebytes |
+| `65-configure-dns.bat` | DNS filtering (malware/phishing) |
+| `70-harden-chrome.bat` | Chrome policies and extension hardening |
+| `75-customize-desktop.bat` | Remove bloatware, create shortcuts |
+| `80-create-standard-user.bat` | Create non-admin daily-use account |
 | `90-verify-setup.bat` | Verify installation |
 | `99-rollback.bat` | Remove all components |
 
@@ -118,6 +127,9 @@ To remove all components:
 - All other VNC connections are blocked by firewall
 - Traffic between devices is encrypted by Tailscale
 - Services restart automatically on failure
+- DNS filtering blocks known malware and phishing domains
+- Chrome hardened with forced ad blocker and safe browsing policies
+- Standard user account for daily use (non-admin)
 
 See [SECURITY.md](SECURITY.md) for details.
 
@@ -128,26 +140,31 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues.
 ## Files
 
 ```
-mah-automated-install/
+win-provision/
 ├── scripts/
-│   ├── 00-setup-master.bat      # Main entry point
-│   ├── 10-install-tailscale.bat
-│   ├── 20-install-tightvnc.bat
-│   ├── 30-configure-firewall.bat
-│   ├── 40-harden-system.bat
-│   ├── 50-configure-services.bat
-│   ├── 90-verify-setup.bat
-│   ├── 99-rollback.bat
+│   ├── 00-setup-master.bat        # Main entry point
+│   ├── 10-install-tailscale.bat   # Tailscale VPN
+│   ├── 20-install-tightvnc.bat   # TightVNC server
+│   ├── 30-configure-firewall.bat  # Firewall lockdown
+│   ├── 40-harden-system.bat      # Security hardening
+│   ├── 45-configure-power.bat    # Power/sleep/update hours
+│   ├── 50-configure-services.bat  # Auto-start services
+│   ├── 60-install-apps.bat       # Chrome, iTunes, Malwarebytes
+│   ├── 65-configure-dns.bat      # DNS filtering
+│   ├── 70-harden-chrome.bat      # Chrome policies + extensions
+│   ├── 75-customize-desktop.bat  # Bloatware removal, shortcuts
+│   ├── 80-create-standard-user.bat # Non-admin daily user
+│   ├── 90-verify-setup.bat       # Post-install verification
+│   ├── 99-rollback.bat           # Remove all components
+│   ├── setup-openssh-server.ps1  # SSH setup (golden image prep)
 │   └── lib/
-│       ├── config.bat
-│       ├── utils-logging.bat
-│       ├── utils-elevation.bat
-│       └── utils-network.bat
+│       └── config.bat            # Centralized configuration
+├── utm-test.sh                   # Full test cycle (macOS host)
+├── utm-push-only.sh              # Push scripts to running VM
+├── utm-env-check.sh              # Verify prerequisites
+├── utm-verify-guest-tools.sh     # Test SSH connectivity
+├── utm.conf                      # Shared host-side config
 ├── docs/
-│   ├── README.md
-│   ├── ARCHITECTURE.md
-│   ├── SECURITY.md
-│   └── TROUBLESHOOTING.md
-├── logs/                        # Created at runtime
-└── output/                      # Credentials saved here
+├── logs/                          # Created at runtime
+└── output/                        # Credentials saved here
 ```

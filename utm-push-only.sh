@@ -8,16 +8,12 @@ set -euo pipefail
 #
 # Usage: utm-push-only.sh <windows-username> [vm-name]
 
-SSH_USER="${1:-}"
-VM_NAME="${2:-Win11-Golden}"
-SSH_KEY="$HOME/.ssh/utm_vm"
-SSH_PORT=2222
-SCRIPTS_DIR="$HOME/utm/scripts"
-GUEST_SCRIPTS="C:/mah-setup/scripts"
-GUEST_LIB="$GUEST_SCRIPTS/lib"
+# Load shared configuration
+source "$(dirname "$0")/utm.conf"
 
-SSH_COMMON=(-F /dev/null -i "$SSH_KEY" -o StrictHostKeyChecking=no \
-    -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -o LogLevel=ERROR)
+SSH_USER="${1:-}"
+# Allow overriding VM name as second arg
+if [[ -n "${2:-}" ]]; then VM_NAME="$2"; fi
 
 if [[ -z "$SSH_USER" ]]; then
     echo "Usage: utm-push-only.sh <windows-username> [vm-name]"
@@ -41,8 +37,9 @@ fi
 echo "Pushing scripts to '$VM_NAME' via SCP..."
 
 # Ensure directories exist (backslashes for cmd.exe)
+GUEST_DIR_WIN="${GUEST_DIR//\//\\}"
 ssh "${SSH_COMMON[@]}" -p "$SSH_PORT" "$SSH_USER@localhost" \
-    "cmd.exe /c mkdir C:\\mah-setup\\scripts\\lib" \
+    "cmd.exe /c mkdir ${GUEST_DIR_WIN}\\scripts\\lib" \
     >/dev/null 2>&1 || true
 
 count=0

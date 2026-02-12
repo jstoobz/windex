@@ -7,12 +7,10 @@ set -euo pipefail
 # file transfer, then shuts it down. Run this after setting up OpenSSH
 # Server in the golden image.
 
-VM_NAME="Win11-Golden"
-SSH_KEY="$HOME/.ssh/utm_vm"
-SSH_PORT=2222
+# Load shared configuration
+source "$(dirname "$0")/utm.conf"
+
 SSH_USER="${1:-}"  # Pass Windows username as first arg
-POLL_INTERVAL=5
-MAX_WAIT=600  # 10 minutes — disposable Windows boots are slow
 
 passed=0
 failed=0
@@ -40,7 +38,7 @@ cleanup() {
 if [[ -z "$SSH_USER" ]]; then
     echo "Usage: utm-verify-guest-tools.sh <windows-username>"
     echo ""
-    echo "The Windows username from the golden image (e.g. 'stoobz' or 'User')."
+    echo "The Windows username from the golden image (e.g. 'User')."
     exit 1
 fi
 

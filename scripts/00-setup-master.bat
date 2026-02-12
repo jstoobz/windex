@@ -18,6 +18,12 @@
 ::   --skip-hardening    Skip system hardening
 ::   --skip-apps         Skip essential app installation
 ::   --skip-chrome       Skip Chrome hardening
+::   --skip-power        Skip power and update settings
+::   --skip-dns          Skip DNS filtering
+::   --skip-desktop      Skip desktop customization
+::   --skip-user         Skip standard user creation
+::   --username=NAME     Standard user account name
+::   --password=PASS     Standard user account password
 ::   --continue-on-error Continue even if a step fails
 ::
 :: Exit Codes: 0=Success, 1=Cancelled, 2=Prerequisites, 3=Failed, 4=Verification
@@ -43,6 +49,10 @@ set "SKIP_FIREWALL=0"
 set "SKIP_HARDENING=0"
 set "SKIP_APPS=0"
 set "SKIP_CHROME_HARDENING=0"
+set "SKIP_POWER=0"
+set "SKIP_DNS=0"
+set "SKIP_DESKTOP=0"
+set "SKIP_USER=0"
 
 :: Parse command line arguments
 :ParseArgs
@@ -60,12 +70,26 @@ if /i "%~1"=="--skip-firewall" set "SKIP_FIREWALL=1"
 if /i "%~1"=="--skip-hardening" set "SKIP_HARDENING=1"
 if /i "%~1"=="--skip-apps" set "SKIP_APPS=1"
 if /i "%~1"=="--skip-chrome" set "SKIP_CHROME_HARDENING=1"
+if /i "%~1"=="--skip-power" set "SKIP_POWER=1"
+if /i "%~1"=="--skip-dns" set "SKIP_DNS=1"
+if /i "%~1"=="--skip-desktop" set "SKIP_DESKTOP=1"
+if /i "%~1"=="--skip-user" set "SKIP_USER=1"
 if /i "%~1"=="--help" goto :ShowHelp
 if /i "%~1"=="/?" goto :ShowHelp
 :: Handle --authkey=VALUE format
 echo %~1 | findstr /i "^--authkey=" >nul
 if not errorlevel 1 (
     for /f "tokens=1,* delims==" %%A in ("%~1") do set "TAILSCALE_AUTHKEY=%%B"
+)
+:: Handle --username=VALUE format
+echo %~1 | findstr /i "^--username=" >nul
+if not errorlevel 1 (
+    for /f "tokens=1,* delims==" %%A in ("%~1") do set "STANDARD_USERNAME=%%B"
+)
+:: Handle --password=VALUE format
+echo %~1 | findstr /i "^--password=" >nul
+if not errorlevel 1 (
+    for /f "tokens=1,* delims==" %%A in ("%~1") do set "STANDARD_PASSWORD=%%B"
 )
 shift
 goto :ParseArgs
@@ -117,7 +141,7 @@ if "%FORCE%"=="0" (
 )
 
 :: Initialize step tracking
-set "STEPS_TOTAL=8"
+set "STEPS_TOTAL=12"
 set "STEPS_COMPLETED=0"
 set "STEPS_FAILED=0"
 set "STEPS_SKIPPED=0"
@@ -172,7 +196,19 @@ if "%SKIP_HARDENING%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 5: Install Essential Apps
+:: STEP 5: Power and Update Settings
+:: ============================================================================
+if "%SKIP_POWER%"=="1" (
+    call :StepSkipped "Power and Update Settings"
+) else (
+    call :RunStep "Power and Update Settings" "45-configure-power.bat"
+    if errorlevel 1 (
+        if "%CONTINUE_ON_ERROR%"=="0" goto :SetupFailed
+    )
+)
+
+:: ============================================================================
+:: STEP 6: Install Essential Apps
 :: ============================================================================
 if "%SKIP_APPS%"=="1" (
     call :StepSkipped "Essential App Installation"
@@ -184,7 +220,19 @@ if "%SKIP_APPS%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 6: Harden Chrome
+:: STEP 7: DNS Filtering
+:: ============================================================================
+if "%SKIP_DNS%"=="1" (
+    call :StepSkipped "DNS Filtering"
+) else (
+    call :RunStep "DNS Filtering" "65-configure-dns.bat"
+    if errorlevel 1 (
+        if "%CONTINUE_ON_ERROR%"=="0" goto :SetupFailed
+    )
+)
+
+:: ============================================================================
+:: STEP 8: Harden Chrome
 :: ============================================================================
 if "%SKIP_CHROME_HARDENING%"=="1" (
     call :StepSkipped "Chrome Hardening"
@@ -196,7 +244,31 @@ if "%SKIP_CHROME_HARDENING%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 7: Configure Services
+:: STEP 9: Desktop Customization
+:: ============================================================================
+if "%SKIP_DESKTOP%"=="1" (
+    call :StepSkipped "Desktop Customization"
+) else (
+    call :RunStep "Desktop Customization" "75-customize-desktop.bat"
+    if errorlevel 1 (
+        if "%CONTINUE_ON_ERROR%"=="0" goto :SetupFailed
+    )
+)
+
+:: ============================================================================
+:: STEP 10: Standard User Account
+:: ============================================================================
+if "%SKIP_USER%"=="1" (
+    call :StepSkipped "Standard User Account"
+) else (
+    call :RunStep "Standard User Account" "80-create-standard-user.bat"
+    if errorlevel 1 (
+        if "%CONTINUE_ON_ERROR%"=="0" goto :SetupFailed
+    )
+)
+
+:: ============================================================================
+:: STEP 11: Configure Services
 :: ============================================================================
 call :RunStep "Service Configuration" "50-configure-services.bat"
 if errorlevel 1 (
@@ -204,7 +276,7 @@ if errorlevel 1 (
 )
 
 :: ============================================================================
-:: STEP 8: Verify Setup
+:: STEP 12: Verify Setup
 :: ============================================================================
 call :RunStep "Setup Verification" "90-verify-setup.bat"
 set "VERIFY_RESULT=%ERRORLEVEL%"
@@ -273,10 +345,14 @@ if "%SKIP_TAILSCALE%"=="0" echo    1. Install Tailscale VPN
 if "%SKIP_VNC%"=="0"       echo    2. Install TightVNC Server
 if "%SKIP_FIREWALL%"=="0"  echo    3. Configure Windows Firewall
 if "%SKIP_HARDENING%"=="0" echo    4. Apply security hardening
-if "%SKIP_APPS%"=="0"      echo    5. Install essential apps (Chrome, iTunes, Malwarebytes)
-if "%SKIP_CHROME_HARDENING%"=="0" echo    6. Harden Chrome browser
-echo    7. Configure services for auto-start
-echo    8. Verify the installation
+if "%SKIP_POWER%"=="0"     echo    5. Configure power and update settings
+if "%SKIP_APPS%"=="0"      echo    6. Install essential apps (Chrome, iTunes, Malwarebytes)
+if "%SKIP_DNS%"=="0"       echo    7. Configure DNS filtering (malware/phishing protection)
+if "%SKIP_CHROME_HARDENING%"=="0" echo    8. Harden Chrome browser
+if "%SKIP_DESKTOP%"=="0"   echo    9. Customize desktop and Start menu
+if "%SKIP_USER%"=="0"      echo   10. Create standard user account
+echo   11. Configure services for auto-start
+echo   12. Verify the installation
 echo.
 echo  ============================================================
 echo.
@@ -417,6 +493,13 @@ echo   --skip-firewall     Skip firewall configuration
 echo   --skip-hardening    Skip system hardening
 echo   --skip-apps         Skip essential app installation
 echo   --skip-chrome       Skip Chrome hardening
+echo   --skip-power        Skip power and update settings
+echo   --skip-dns          Skip DNS filtering
+echo   --skip-desktop      Skip desktop customization
+echo   --skip-user         Skip standard user creation
+echo.
+echo   --username=NAME     Standard user account name
+echo   --password=PASS     Standard user account password
 echo.
 echo Examples:
 echo   %~nx0 --authkey=tskey-auth-xxxxx

@@ -36,8 +36,8 @@ set "OUTPUT_DIR=%BASE_DIR%\output"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" 2>nul
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%" 2>nul
 
-:: Log file (timestamped) - use simple date format
-for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set "DATETIME=%%I"
+:: Log file (timestamped) - PowerShell for Win11 compat (wmic is deprecated)
+for /f "tokens=*" %%I in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMddHHmm"') do set "DATETIME=%%I"
 set "DATE_STAMP=%DATETIME:~0,8%"
 set "TIME_STAMP=%DATETIME:~8,4%"
 set "LOG_FILE=%LOG_DIR%\setup_%DATE_STAMP%_%TIME_STAMP%.log"
@@ -83,6 +83,19 @@ set "MALWAREBYTES_EXE=C:\Program Files\Malwarebytes\Anti-Malware\mbam.exe"
 
 :: CHROME EXTENSIONS (Chrome Web Store IDs)
 set "EXT_UBLOCK=cjpalhdlnbpafiamejdnhcphjbkeiagm"
+
+:: ============================================================================
+:: DNS CONFIGURATION
+:: ============================================================================
+:: Cloudflare Family: blocks malware + phishing domains
+set "DNS_PRIMARY=1.1.1.3"
+set "DNS_SECONDARY=1.0.0.3"
+
+:: ============================================================================
+:: STANDARD USER ACCOUNT (optional — set via --username/--password args)
+:: ============================================================================
+if not defined STANDARD_USERNAME set "STANDARD_USERNAME="
+if not defined STANDARD_PASSWORD set "STANDARD_PASSWORD="
 
 :: ============================================================================
 :: REGISTRY CONFIGURATION
