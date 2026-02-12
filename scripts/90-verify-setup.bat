@@ -232,12 +232,18 @@ if exist "%ITUNES_EXE%" (
     call :CheckFail "Apple iTunes not found"
 )
 
-:: Check Malwarebytes
+:: Check Malwarebytes (may not be available on ARM64 via winget)
 set /a "TOTAL_CHECKS+=1"
 if exist "%MALWAREBYTES_EXE%" (
     call :CheckPass "Malwarebytes is installed"
 ) else (
-    call :CheckFail "Malwarebytes not found"
+    :: Check if ARM64 — Malwarebytes winget package may not support it
+    powershell -NoProfile -Command "if ((Get-CimInstance Win32_Processor).Architecture -eq 12) { exit 1 }" >nul 2>&1
+    if errorlevel 1 (
+        call :CheckWarn "Malwarebytes not found - install manually on ARM64"
+    ) else (
+        call :CheckFail "Malwarebytes not found"
+    )
 )
 
 goto :eof
@@ -298,14 +304,17 @@ echo Verifying Power Settings...
 
 :: Check AC sleep timeout (should be 0 = never)
 set /a "TOTAL_CHECKS+=1"
-powershell -NoProfile -Command ^
-    "$p = powercfg /query scheme_current sub_sleep standby-timeout-ac 2>$null; " ^
-    "if ($p -match '0x00000000') { exit 0 } else { exit 1 }" >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    call :CheckPass "AC sleep disabled (never)"
-) else (
-    call :CheckWarn "AC sleep may not be disabled"
+for /f "tokens=*" %%L in ('powercfg /query SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 2^>nul ^| findstr "Current AC"') do (
+    echo %%L | findstr "0x00000000" >nul 2>&1
+    if !ERRORLEVEL! EQU 0 (
+        call :CheckPass "AC sleep disabled - never"
+    ) else (
+        call :CheckWarn "AC sleep may not be disabled"
+    )
+    goto :VerifyPowerDone
 )
+call :CheckWarn "Could not query AC sleep setting"
+:VerifyPowerDone
 
 :: Check Windows Update active hours
 set /a "TOTAL_CHECKS+=1"

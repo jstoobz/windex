@@ -81,6 +81,7 @@ set "FW_RULE_VNC_BLOCK=VNC-Block-All"
 :: ============================================================================
 :: ESSENTIAL APPS
 :: ============================================================================
+set "CHROME_MSI_URL=https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise_arm64.msi"
 set "CHROME_EXE=C:\Program Files\Google\Chrome\Application\chrome.exe"
 set "ITUNES_EXE=C:\Program Files\iTunes\iTunes.exe"
 set "MALWAREBYTES_EXE=C:\Program Files\Malwarebytes\Anti-Malware\mbam.exe"
