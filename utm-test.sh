@@ -8,7 +8,7 @@ set -euo pipefail
 # running for manual inspection. Disk changes are discarded on shutdown.
 #
 # Usage:
-#   utm-test.sh --user=<winuser> --authkey=tskey-auth-xxx [--dry-run] [--keep-running] [--verbose]
+#   utm-test.sh --user=<winuser> --authkey=tskey-auth-xxx [--username=NAME] [--password=PASS] [--dry-run] [--keep-running] [--verbose]
 
 # Load shared configuration
 source "$(dirname "$0")/utm.conf"
@@ -16,14 +16,18 @@ source "$(dirname "$0")/utm.conf"
 # Parse arguments
 SSH_USER=""
 AUTHKEY=""
+STD_USERNAME=""
+STD_PASSWORD=""
 DRY_RUN=false
 KEEP_RUNNING=false
 VERBOSE=false
 
 for arg in "$@"; do
     case "$arg" in
-        --user=*)    SSH_USER="${arg#--user=}" ;;
-        --authkey=*) AUTHKEY="${arg#--authkey=}" ;;
+        --user=*)     SSH_USER="${arg#--user=}" ;;
+        --authkey=*)  AUTHKEY="${arg#--authkey=}" ;;
+        --username=*) STD_USERNAME="${arg#--username=}" ;;
+        --password=*) STD_PASSWORD="${arg#--password=}" ;;
         --dry-run)   DRY_RUN=true ;;
         --keep-running) KEEP_RUNNING=true ;;
         --verbose)   VERBOSE=true ;;
@@ -35,6 +39,8 @@ for arg in "$@"; do
             echo "  --authkey=KEY     Tailscale auth key (required unless --dry-run)"
             echo ""
             echo "Options:"
+            echo "  --username=NAME   Standard user account name (e.g. mom)"
+            echo "  --password=PASS   Standard user account password"
             echo "  --dry-run         Push scripts and run master in dry-run mode"
             echo "  --keep-running    Leave VM running after test for manual inspection"
             echo "  --verbose         Enable verbose output"
@@ -180,10 +186,17 @@ log "Pushed $push_count files"
 # ── Step 5: Execute master script ────────────────────────────────
 log "Executing setup master..."
 
-# Build command — set authkey as env var (cmd.exe splits = in args through SSH)
+# Build command — set env vars with quotes to avoid trailing-space issues
+# In cmd.exe: set "VAR=value"& prevents space-before-& from being included
 master_cmd=""
 if [[ -n "$AUTHKEY" ]]; then
-    master_cmd="set TAILSCALE_AUTHKEY=$AUTHKEY & "
+    master_cmd="set \"TAILSCALE_AUTHKEY=$AUTHKEY\"& "
+fi
+if [[ -n "$STD_USERNAME" ]]; then
+    master_cmd="${master_cmd}set \"STANDARD_USERNAME=$STD_USERNAME\"& "
+fi
+if [[ -n "$STD_PASSWORD" ]]; then
+    master_cmd="${master_cmd}set \"STANDARD_PASSWORD=$STD_PASSWORD\"& "
 fi
 master_cmd="${master_cmd}${GUEST_DIR_WIN}\\scripts\\00-setup-master.bat --force"
 if $DRY_RUN; then

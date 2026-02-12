@@ -50,9 +50,11 @@ if %ERRORLEVEL% EQU 0 (
 )
 
 :: Ensure winget source is initialized (required on fresh installs)
-call "%LOG%" debug "Initializing winget sources..."
-winget source reset --force >nul 2>&1
-winget source update >nul 2>&1
+call :InitWingetSource
+if errorlevel 1 (
+    call "%LOG%" error "Failed to initialize winget source"
+    exit /b %EXIT_PREREQ_FAILED%
+)
 
 :: Install each application
 set "APP_ERRORS=0"
@@ -95,20 +97,42 @@ if exist "%CHROME_EXE%" (
 )
 
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would execute: winget install --id Google.Chrome --exact --silent --accept-package-agreements --accept-source-agreements
+    echo [DRY-RUN] Would install Google Chrome via winget or direct MSI download
     exit /b 0
 )
 
-call "%LOG%" debug "Running winget install for Google Chrome..."
-winget install --id Google.Chrome --exact --silent --accept-package-agreements --accept-source-agreements
+:: Try winget first
+call "%LOG%" debug "Trying winget install for Google Chrome..."
+winget install --id Google.Chrome --exact --silent --accept-package-agreements --accept-source-agreements >nul 2>&1
+
+:: Check if winget actually installed it
+if exist "%CHROME_EXE%" (
+    call "%LOG%" success "Google Chrome installed via winget"
+    exit /b 0
+)
+
+:: Winget failed or hash mismatch — fall back to direct MSI download
+call "%LOG%" info "Winget install incomplete, downloading Chrome MSI directly..."
+set "CHROME_MSI=%TEMP%\chrome-setup.msi"
+powershell -NoProfile -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri '%CHROME_MSI_URL%' -OutFile '%CHROME_MSI%' -UseBasicParsing"
 if errorlevel 1 (
-    call "%LOG%" error "Failed to install Google Chrome via winget"
+    call "%LOG%" error "Failed to download Chrome MSI"
+    exit /b 1
+)
+
+call "%LOG%" debug "Installing Chrome MSI..."
+msiexec /i "%CHROME_MSI%" /quiet /norestart
+set "MSI_RESULT=%ERRORLEVEL%"
+del "%CHROME_MSI%" 2>nul
+
+if %MSI_RESULT% NEQ 0 if %MSI_RESULT% NEQ 3010 (
+    call "%LOG%" error "Chrome MSI install failed with code %MSI_RESULT%"
     exit /b 1
 )
 
 :: Verify
 if exist "%CHROME_EXE%" (
-    call "%LOG%" success "Google Chrome installed successfully"
+    call "%LOG%" success "Google Chrome installed via direct download"
     exit /b 0
 )
 
@@ -169,10 +193,7 @@ if "%DRY_RUN%"=="1" (
 
 call "%LOG%" debug "Running winget install for Malwarebytes..."
 winget install --id Malwarebytes.Malwarebytes --exact --silent --accept-package-agreements --accept-source-agreements
-if errorlevel 1 (
-    call "%LOG%" error "Failed to install Malwarebytes via winget"
-    exit /b 1
-)
+set "MB_RESULT=%ERRORLEVEL%"
 
 :: Verify
 if exist "%MALWAREBYTES_EXE%" (
@@ -180,7 +201,54 @@ if exist "%MALWAREBYTES_EXE%" (
     exit /b 0
 )
 
+:: Check if this is an ARM64 platform where Malwarebytes may not be available
+if %MB_RESULT% NEQ 0 (
+    powershell -NoProfile -Command "if ([Environment]::Is64BitOperatingSystem -and (Get-CimInstance Win32_Processor).Architecture -eq 12) { exit 1 }" >nul 2>&1
+    if errorlevel 1 (
+        call "%LOG%" warn "Malwarebytes may not support ARM64 via winget — install manually from malwarebytes.com"
+        exit /b 0
+    )
+)
+
 call "%LOG%" error "Malwarebytes executable not found after install"
+exit /b 1
+
+:: ============================================================================
+:: WINGET SOURCE INITIALIZATION
+:: ============================================================================
+
+:InitWingetSource
+call "%LOG%" info "Initializing winget package source..."
+
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would initialize winget source via MSIX package
+    exit /b 0
+)
+
+:: Test if winget source is already working
+winget search --id Microsoft.PowerToys --exact --source winget --count 1 >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call "%LOG%" debug "Winget source is already working"
+    exit /b 0
+)
+
+:: Source is broken — install the MSIX source package directly
+call "%LOG%" debug "Winget source not functional, installing source MSIX..."
+powershell -NoProfile -Command "Add-AppxPackage -Path 'https://cdn.winget.microsoft.com/cache/source.msix'" 2>nul
+if errorlevel 1 (
+    call "%LOG%" warn "MSIX install returned error, trying source reset..."
+    winget source reset --force >nul 2>&1
+    winget source update >nul 2>&1
+)
+
+:: Verify it works now
+winget search --id Microsoft.PowerToys --exact --source winget --count 1 >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call "%LOG%" success "Winget source initialized"
+    exit /b 0
+)
+
+call "%LOG%" error "Winget source still not functional after initialization"
 exit /b 1
 
 :: ============================================================================
