@@ -21,9 +21,9 @@ GUEST_LIB="$GUEST_SCRIPTS/lib"
 GUEST_LOGS="$GUEST_BASE/logs"
 GUEST_OUTPUT="$GUEST_BASE/output"
 POLL_INTERVAL=5
-MAX_WAIT=180
+MAX_WAIT=300
 
-SSH_OPTS=(-i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no \
+SSH_OPTS=(-F /dev/null -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -o LogLevel=ERROR)
 
 # Parse arguments

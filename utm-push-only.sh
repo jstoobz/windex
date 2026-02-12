@@ -16,7 +16,7 @@ SCRIPTS_DIR="$HOME/utm/scripts"
 GUEST_SCRIPTS="C:/mah-setup/scripts"
 GUEST_LIB="$GUEST_SCRIPTS/lib"
 
-SSH_OPTS=(-i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no \
+SSH_OPTS=(-F /dev/null -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -o LogLevel=ERROR)
 
 if [[ -z "$SSH_USER" ]]; then

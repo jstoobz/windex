@@ -12,7 +12,7 @@ SSH_KEY="$HOME/.ssh/utm_vm"
 SSH_PORT=2222
 SSH_USER="${1:-}"  # Pass Windows username as first arg
 POLL_INTERVAL=5
-MAX_WAIT=180  # 3 minutes
+MAX_WAIT=300  # 5 minutes (disposable boots are slow — Windows Update)
 
 passed=0
 failed=0
@@ -26,7 +26,7 @@ result() {
 }
 
 ssh_cmd() {
-    ssh -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no \
+    ssh -F /dev/null -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no \
         -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
         -o LogLevel=ERROR "$SSH_USER@localhost" "$@"
 }
@@ -64,8 +64,8 @@ if [[ "$vm_status" == "started" ]]; then
     echo "(Will NOT stop VM on exit since we didn't start it)"
     we_started=false
 else
-    echo "Starting VM '$VM_NAME'..."
-    utmctl start "$VM_NAME"
+    echo "Starting VM '$VM_NAME' (disposable)..."
+    utmctl start --disposable "$VM_NAME"
     we_started=true
     trap cleanup EXIT
 fi
@@ -132,7 +132,7 @@ fi
 test_content="ssh-test-$(date +%s)"
 test_file=$(mktemp)
 echo "$test_content" > "$test_file"
-if scp -i "$SSH_KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no \
+if scp -F /dev/null -i "$SSH_KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no \
        -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
        "$test_file" "$SSH_USER@localhost:C:/utm-test-file.txt" 2>/dev/null; then
     result pass "SCP push"
@@ -142,7 +142,7 @@ fi
 
 # Test 5: file transfer via scp (pull + verify)
 pull_file=$(mktemp)
-if scp -i "$SSH_KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no \
+if scp -F /dev/null -i "$SSH_KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no \
        -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
        "$SSH_USER@localhost:C:/utm-test-file.txt" "$pull_file" 2>/dev/null; then
     pulled=$(cat "$pull_file")
