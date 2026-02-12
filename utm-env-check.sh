@@ -14,7 +14,7 @@ failed=0
 check() {
     local label="$1"
     shift
-    if "$@" >/dev/null 2>&1; then
+    if "$@" > /dev/null 2>&1; then
         echo "  [PASS] $label"
         ((passed++)) || true
     else
@@ -44,7 +44,7 @@ check "VM '$VM_NAME' exists" utmctl status "$VM_NAME"
 
 # 4. Disk space
 avail_gb=$(df -g "$HOME" | awk 'NR==2 {print $4}')
-if (( avail_gb >= MIN_DISK_GB )); then
+if ((avail_gb >= MIN_DISK_GB)); then
     echo "  [PASS] Disk space: ${avail_gb}GB available (need ${MIN_DISK_GB}GB)"
     ((passed++)) || true
 else
@@ -53,8 +53,8 @@ else
 fi
 
 # 5. Scripts directory exists and has batch files
-bat_count=$(find "$SCRIPTS_DIR" -maxdepth 1 -name "*.bat" 2>/dev/null | wc -l | tr -d ' ')
-if (( bat_count > 0 )); then
+bat_count=$(find "$SCRIPTS_DIR" -maxdepth 1 -name "*.bat" 2> /dev/null | wc -l | tr -d ' ')
+if ((bat_count > 0)); then
     echo "  [PASS] Scripts directory: $bat_count .bat files found"
     ((passed++)) || true
 else
@@ -75,4 +75,4 @@ echo "  Passed: $passed  Failed: $failed"
 echo "============================================================"
 echo ""
 
-(( failed == 0 )) && exit 0 || exit 1
+((failed == 0)) && exit 0 || exit 1
