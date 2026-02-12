@@ -9,7 +9,7 @@ set -euo pipefail
 # Usage: utm-push-only.sh <windows-username> [vm-name]
 
 SSH_USER="${1:-}"
-VM_NAME="${2:-Clean-Win11-Base-With-GuestTools}"
+VM_NAME="${2:-Win11-Golden}"
 SSH_KEY="$HOME/.ssh/utm_vm"
 SSH_PORT=2222
 SCRIPTS_DIR="$HOME/utm/scripts"

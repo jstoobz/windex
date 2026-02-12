@@ -7,7 +7,7 @@ set -euo pipefail
 # file transfer, then shuts it down. Run this after setting up OpenSSH
 # Server in the golden image.
 
-VM_NAME="Clean-Win11-Base-With-GuestTools"
+VM_NAME="Win11-Golden"
 SSH_KEY="$HOME/.ssh/utm_vm"
 SSH_PORT=2222
 SSH_USER="${1:-}"  # Pass Windows username as first arg

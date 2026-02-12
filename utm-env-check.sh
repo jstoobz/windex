@@ -3,7 +3,7 @@ set -euo pipefail
 
 # utm-env-check.sh — Verify environment prerequisites for UTM VM testing
 
-VM_NAME="Clean-Win11-Base-With-GuestTools"
+VM_NAME="Win11-Golden"
 MIN_DISK_GB=10
 
 passed=0

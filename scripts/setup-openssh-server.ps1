@@ -36,15 +36,18 @@ Start-Service sshd
 Set-Service -Name sshd -StartupType Automatic
 Write-Host "[OK] sshd started and set to auto-start" -ForegroundColor Green
 
-# Step 3: Verify firewall rule exists (Windows auto-creates it on install)
+# Step 3: Verify firewall rule exists and allow all profiles
+# Windows auto-creates a rule on install but restricts it to Private profile.
+# QEMU SLIRP network is classified as Public, so SSH would be blocked.
 $fwRule = Get-NetFirewallRule -Name *ssh* -ErrorAction SilentlyContinue
 if ($fwRule) {
-    Write-Host "[OK] Firewall rule exists: $($fwRule.Name)" -ForegroundColor Green
+    Set-NetFirewallRule -Name $fwRule.Name -Profile Any
+    Write-Host "[OK] Firewall rule exists: $($fwRule.Name) (set to all profiles)" -ForegroundColor Green
 } else {
     Write-Host "[....] Creating firewall rule for SSH..."
     New-NetFirewallRule -Name sshd -DisplayName 'OpenSSH Server (sshd)' `
-        -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22
-    Write-Host "[OK] Firewall rule created" -ForegroundColor Green
+        -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 -Profile Any
+    Write-Host "[OK] Firewall rule created (all profiles)" -ForegroundColor Green
 }
 
 # Step 4: Set up key-based auth

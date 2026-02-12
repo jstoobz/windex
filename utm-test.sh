@@ -10,7 +10,7 @@ set -euo pipefail
 # Usage:
 #   utm-test.sh --user=<winuser> --authkey=tskey-auth-xxx [--dry-run] [--keep-running] [--verbose]
 
-VM_NAME="Clean-Win11-Base-With-GuestTools"
+VM_NAME="Win11-Golden"
 SSH_KEY="$HOME/.ssh/utm_vm"
 SSH_PORT=2222
 SCRIPTS_DIR="$HOME/utm/scripts"
