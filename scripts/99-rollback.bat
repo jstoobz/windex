@@ -345,7 +345,7 @@ if defined UNINSTALL_CMD (
     ) else (
         %UNINSTALL_CMD% /S
     )
-    timeout /t 5 /nobreak >nul
+    ping -n 6 127.0.0.1 >nul
     call "%LOG%" success "TightVNC uninstalled"
 ) else (
     call "%LOG%" warn "Could not find TightVNC uninstaller"
@@ -383,11 +383,11 @@ for /f "tokens=2*" %%A in ('reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVe
 if defined UNINSTALL_CMD (
     call "%LOG%" debug "Running uninstaller..."
     %UNINSTALL_CMD% /S
-    timeout /t 10 /nobreak >nul
+    ping -n 11 127.0.0.1 >nul
     call "%LOG%" success "Tailscale uninstalled"
 ) else if exist "C:\Program Files\Tailscale\uninstall.exe" (
     "C:\Program Files\Tailscale\uninstall.exe" /S
-    timeout /t 10 /nobreak >nul
+    ping -n 11 127.0.0.1 >nul
     call "%LOG%" success "Tailscale uninstalled"
 ) else (
     call "%LOG%" warn "Could not find Tailscale uninstaller"

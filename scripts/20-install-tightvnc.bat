@@ -143,16 +143,9 @@ if "%DRY_RUN%"=="1" (
     exit /b 0
 )
 
-:: Generate password using PowerShell
-for /f "delims=" %%P in ('powershell -Command "Add-Type -AssemblyName System.Web; [System.Web.Security.Membership]::GeneratePassword(%VNC_PASSWORD_LENGTH%, %VNC_PASSWORD_SPECIAL_CHARS%)"') do (
+:: Generate password using PowerShell (safe chars only — no cmd.exe specials)
+for /f "delims=" %%P in ('powershell -NoProfile -Command "$c = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789~_-+.'; -join ((1..%VNC_PASSWORD_LENGTH%) | ForEach-Object { $c[(Get-Random -Maximum $c.Length)] })"') do (
     set "VNC_PASSWORD=%%P"
-)
-
-if not defined VNC_PASSWORD (
-    :: Fallback: simpler password generation
-    for /f "delims=" %%P in ('powershell -Command "$chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'; -join ((1..%VNC_PASSWORD_LENGTH%) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })"') do (
-        set "VNC_PASSWORD=%%P"
-    )
 )
 
 if not defined VNC_PASSWORD (
@@ -222,7 +215,7 @@ set "WAIT_COUNT=0"
 :WaitForServiceReg
 sc query %TIGHTVNC_SERVICE% >nul 2>&1
 if %ERRORLEVEL% EQU 0 goto :ServiceRegistered
-timeout /t 2 /nobreak >nul
+ping -n 3 127.0.0.1 >nul
 set /a "WAIT_COUNT+=1"
 if %WAIT_COUNT% GTR 30 (
     call "%LOG%" error "Timeout waiting for TightVNC service registration"
@@ -304,7 +297,7 @@ set "WAIT_COUNT=0"
 :WaitForPort
 netstat -an | findstr ":%VNC_PORT% .*LISTENING" >nul 2>&1
 if %ERRORLEVEL% EQU 0 goto :PortListening
-timeout /t 2 /nobreak >nul
+ping -n 3 127.0.0.1 >nul
 set /a "WAIT_COUNT+=1"
 if %WAIT_COUNT% GTR 15 (
     call "%LOG%" error "VNC port %VNC_PORT% is not listening"

@@ -186,7 +186,7 @@ call "%LOG%" debug "Waiting for installation to complete..."
 set "WAIT_COUNT=0"
 :WaitForInstall
 if exist "%TAILSCALE_EXE%" goto :InstallComplete
-timeout /t 2 /nobreak >nul
+ping -n 3 127.0.0.1 >nul
 set /a "WAIT_COUNT+=1"
 if %WAIT_COUNT% GTR 30 (
     call "%LOG%" error "Timeout waiting for Tailscale installation"
@@ -212,7 +212,7 @@ set "WAIT_COUNT=0"
 :WaitForService
 sc query Tailscale | findstr "RUNNING" >nul 2>&1
 if %ERRORLEVEL% EQU 0 goto :ServiceRunning
-timeout /t 2 /nobreak >nul
+ping -n 3 127.0.0.1 >nul
 set /a "WAIT_COUNT+=1"
 if %WAIT_COUNT% GTR 30 (
     call "%LOG%" error "Timeout waiting for Tailscale service"
@@ -230,7 +230,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-timeout /t 5 /nobreak >nul
+ping -n 6 127.0.0.1 >nul
 
 for /f "tokens=*" %%I in ('"%TAILSCALE_EXE%" ip -4 2^>nul') do set "TAILSCALE_IP=%%I"
 if not defined TAILSCALE_IP (

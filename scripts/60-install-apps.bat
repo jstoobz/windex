@@ -49,6 +49,11 @@ if %ERRORLEVEL% EQU 0 (
     )
 )
 
+:: Ensure winget source is initialized (required on fresh installs)
+call "%LOG%" debug "Initializing winget sources..."
+winget source reset --force >nul 2>&1
+winget source update >nul 2>&1
+
 :: Install each application
 set "APP_ERRORS=0"
 
@@ -65,7 +70,7 @@ if errorlevel 1 set /a "APP_ERRORS+=1"
 call :MarkInstalled
 
 if %APP_ERRORS% GTR 0 (
-    call "%LOG%" warn "App installation completed with %APP_ERRORS% error(s)"
+    call "%LOG%" warn "App installation completed with %APP_ERRORS% errors"
     exit /b %EXIT_PARTIAL_SUCCESS%
 )
 
