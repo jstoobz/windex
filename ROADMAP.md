@@ -11,50 +11,27 @@
 - [x] TightVNC server installation (20)
 - [x] Firewall configuration — VNC locked to Tailscale subnet (30)
 - [x] System hardening — disable Remote Assistance, reduce telemetry, disable autoplay (40)
+- [x] Power and sleep settings — prevent sleep on AC, active hours for Windows Update (45)
 - [x] Service configuration — auto-start on boot (50)
 - [x] Essential apps — Chrome, iTunes, Malwarebytes via winget (60)
+- [x] DNS-level filtering — Cloudflare Family on all adapters (65)
 - [x] Chrome hardening — uBlock Origin force-install, safe browsing policies (70)
-- [x] Setup verification (90)
+- [x] Taskbar and Start menu cleanup — remove bloatware pins, pin essential apps (75)
+- [x] Standard user account creation (80)
+- [x] Setup verification — checks all installed components (90)
 - [x] Rollback script (99)
+- [x] USB bundle script — one-click provisioning USB drive (`utm-bundle.sh`)
+- [x] Test harness — disposable VM testing via UTM (`utm-test.sh`)
+- [x] README with deployment methods (USB, PowerShell, Quick Assist)
+- [x] `wmic` deprecation fix — replaced with PowerShell `Get-Date` in config.bat
 
-## High Priority
+## Repo Genericization
 
-### Verification gap
-`90-verify-setup.bat` only checks Tailscale, VNC, firewall, and services. Needs checks for:
-- Chrome executable exists
-- iTunes executable exists
-- Malwarebytes executable exists
-- Chrome policy registry keys are set
-- uBlock Origin force-install key present
-
-### Power and sleep settings
-Laptops default to sleep after 15 min on battery. Remote access (Tailscale+VNC) requires the machine to stay awake on AC power. Use `powercfg` to:
-- Prevent sleep on AC
-- Set reasonable battery sleep (30 min)
-- Keep WiFi alive during sleep (for wake-on-LAN scenarios)
-
-### Windows Update active hours
-Set active hours via registry so updates don't reboot during the day:
-- `HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings`
-- ActiveHoursStart / ActiveHoursEnd (e.g., 8am–11pm)
-
-### Standard user account
-Running as admin day-to-day is a security risk. Create a standard (non-admin) user account for daily use. Keep the admin account for provisioning/maintenance only.
-
-### DNS-level filtering
-Set DNS to a filtering provider for extra protection against malware/phishing:
-- Cloudflare Family: `1.1.1.3` / `1.0.0.3` (malware + adult content blocking)
-- Or OpenDNS FamilyShield: `208.67.222.123` / `208.67.220.123`
-- Apply via `netsh` or registry to all network adapters
-
-### Taskbar and Start menu cleanup
-Fresh Win11 has bloatware pinned (TikTok, Spotify, Disney+, etc.):
-- Remove default pins from Start menu
-- Pin essential apps (Chrome, iTunes) to taskbar
-- Clean up desktop shortcuts
-
-### Desktop shortcuts
-Create desktop and/or taskbar shortcuts for Chrome and iTunes so they're easy to find.
+- [x] Audit all scripts for hardcoded personal information
+- [x] Make all user-specific values configurable via `lib/config.bat`
+- [x] Ensure shell-side test scripts are parameterized
+- [x] Add README with setup instructions
+- [ ] Add a config template or setup wizard
 
 ## Medium Priority
 
@@ -63,12 +40,6 @@ Chrome policy `HomepageLocation` sets homepage but doesn't make Chrome the defau
 - `SetDefaultBrowser` Chrome policy (may work)
 - `SetUserFTA` tool
 - Accept the "make default" prompt on first launch
-
-### Fix `wmic` deprecation in config.bat
-`config.bat` line 40 uses `wmic os get localdatetime` for log timestamps. `wmic` is deprecated/removed in Windows 11. Replace with PowerShell equivalent:
-```
-for /f "tokens=*" %%I in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMddHHmm"') do set "DATETIME=%%I"
-```
 
 ## Low Priority / Future
 
@@ -81,9 +52,5 @@ Consider OneDrive setup, File History, or other backup approach.
 ### Printer setup
 Auto-discovery usually works on Win11 but may need manual configuration.
 
-## Repo Genericization
-- [ ] Audit all scripts for hardcoded personal information
-- [ ] Make all user-specific values configurable via `lib/config.bat`
-- [ ] Add a config template or setup wizard
-- [ ] Ensure shell-side test scripts are parameterized
-- [ ] Add README with setup instructions
+### PowerShell bootstrap script
+Standalone `bootstrap.ps1` for `irm | iex` style provisioning from a fresh PowerShell terminal. Currently documented as inline commands in README.
