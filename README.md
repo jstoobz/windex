@@ -60,15 +60,41 @@ Copy-Item "$src\scripts\*" "C:\provision\scripts\" -Recurse -Force
 cmd /c "C:\provision\scripts\00-setup-master.bat --force"
 ```
 
-### Method 3: Quick Assist (Remote)
+### Method 3: Remote Provisioning
 
-Best for helping someone non-technical. Built into Windows 11 — no install needed.
+Best for helping someone non-technical from another machine.
 
-1. Call them on the phone
-2. Have them open **Quick Assist** (Start → type "Quick Assist")
-3. You go to https://aka.ms/quickassist → **Help someone** → get a code
-4. They enter the code → you get remote desktop
-5. Open admin terminal and use Method 2 above
+**Step 1 — Get a remote session** using one of:
+
+| Tool | Helper (you) | Remote (them) | Notes |
+|------|-------------|---------------|-------|
+| **Quick Assist** | Windows only | Start → "Quick Assist" → **Get help** | Built into Win11, requires Microsoft account on helper side |
+| **Chrome Remote Desktop** | Any OS | `remotedesktop.google.com/support` → **Share this screen** | Works from Mac/Linux, needs Chrome |
+
+**Step 2 — Run provisioning** via Method 2 (paste the PowerShell block into an admin terminal).
+
+**Step 3 — Install OpenSSH** before disconnecting. This gives you a persistent admin channel over Tailscale so you never need remote desktop again:
+
+```powershell
+Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+Start-Service sshd
+Set-Service -Name sshd -StartupType Automatic
+```
+
+**Step 4 — Disconnect remote desktop.** From now on, SSH in over Tailscale:
+
+```bash
+ssh -F /dev/null <user>@<tailscale-ip>
+```
+
+For screen sharing, tunnel VNC through SSH (avoids NAT/relay issues):
+
+```bash
+ssh -F /dev/null -L 5900:localhost:5900 <user>@<tailscale-ip>
+# Then VNC to localhost:5900
+```
+
+> **Why OpenSSH?** Remote desktop tools (Quick Assist, Chrome Remote Desktop) depend on browser sessions and can be laggy over Tailscale's DERP relay. SSH handles relay gracefully and gives you a permanent, fast admin channel. Install it while you have remote desktop access — you won't need remote desktop again.
 
 ## Prerequisites
 
@@ -115,6 +141,7 @@ windex/
 │   ├── 10-install-tailscale.bat
 │   ├── ...                     # Steps 20-90
 │   ├── 99-rollback.bat         # Undo everything
+│   ├── helpers.ps1             # Reusable PowerShell snippets
 │   ├── setup-openssh-server.ps1
 │   └── lib/
 │       ├── config.bat          # All paths, URLs, and defaults
