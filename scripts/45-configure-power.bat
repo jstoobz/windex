@@ -124,6 +124,7 @@ if "%DRY_RUN%"=="1" (
     echo [DRY-RUN]   reg add "HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" /v ActiveHoursStart /t REG_DWORD /d 8 /f
     echo [DRY-RUN]   reg add "HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" /v ActiveHoursEnd /t REG_DWORD /d 23 /f
     echo [DRY-RUN]   reg add "HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" /v IsActiveHoursEnabled /t REG_DWORD /d 1 /f
+    echo [DRY-RUN] Would prevent auto-reboot with logged-on users
     exit /b 0
 )
 
@@ -140,6 +141,12 @@ if errorlevel 1 (
 )
 
 call "%LOG%" success "Windows Update active hours set (8:00 - 23:00)"
+
+:: Prevent auto-reboot while users are logged in
+set "WU_AU_KEY=HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
+reg add "%WU_AU_KEY%" /v "NoAutoRebootWithLoggedOnUsers" /t REG_DWORD /d 1 /f >nul 2>&1
+call "%LOG%" debug "Auto-reboot with logged-on users: disabled"
+
 exit /b 0
 
 :: ============================================================================

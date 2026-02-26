@@ -77,6 +77,15 @@ if [[ -z "$AUTHKEY" && "$DRY_RUN" == true ]]; then
     AUTHKEY="tskey-auth-dry-run-placeholder"
 fi
 
+# Auto-detect SSH public key for OpenSSH provisioning
+SSH_PUBKEY=""
+for candidate in "$HOME/.ssh/utm_vm.pub" "$HOME/.ssh/id_ed25519.pub"; do
+    if [[ -f "$candidate" ]]; then
+        SSH_PUBKEY=$(cat "$candidate")
+        break
+    fi
+done
+
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 verbose() { $VERBOSE && log "$*" || true; }
 
@@ -119,6 +128,11 @@ echo "  User:       $SSH_USER"
 echo "  Dry-run:    $DRY_RUN"
 echo "  Keep VM:    $KEEP_RUNNING"
 echo "  Results:    $run_dir"
+if [[ -n "$SSH_PUBKEY" ]]; then
+    echo "  SSH key:    ${SSH_PUBKEY:0:30}..."
+else
+    echo "  SSH key:    (none found)"
+fi
 echo "============================================================"
 echo ""
 
@@ -167,8 +181,8 @@ ssh_cmd "cmd.exe /c mkdir ${GUEST_DIR_WIN}\\scripts\\lib & mkdir ${GUEST_DIR_WIN
 log "Pushing scripts to VM..."
 push_count=0
 
-# Push all .bat files from scripts/
-for f in "$SCRIPTS_DIR"/*.bat; do
+# Push all .bat and .ps1 files from scripts/
+for f in "$SCRIPTS_DIR"/*.bat "$SCRIPTS_DIR"/*.ps1; do
     [[ -f "$f" ]] || continue
     fname=$(basename "$f")
     verbose "  → $fname"
@@ -208,6 +222,9 @@ if [[ -n "$STD_USERNAME" ]]; then
 fi
 if [[ -n "$STD_PASSWORD" ]]; then
     master_cmd="${master_cmd}set \"STANDARD_PASSWORD=$STD_PASSWORD\"& "
+fi
+if [[ -n "$SSH_PUBKEY" ]]; then
+    master_cmd="${master_cmd}set \"ADMIN_SSH_PUBKEY=$SSH_PUBKEY\"& "
 fi
 master_cmd="${master_cmd}${GUEST_DIR_WIN}\\scripts\\00-setup-master.bat --force"
 # SLIRP networking can't route DNS to external servers — always skip DNS step

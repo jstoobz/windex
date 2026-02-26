@@ -193,25 +193,34 @@ if "%DRY_RUN%"=="1" (
 
 call "%LOG%" debug "Running winget install for Malwarebytes..."
 winget install --id Malwarebytes.Malwarebytes --exact --silent --accept-package-agreements --accept-source-agreements
-set "MB_RESULT=%ERRORLEVEL%"
 
-:: Verify
+:: Check if winget actually installed it
 if exist "%MALWAREBYTES_EXE%" (
-    call "%LOG%" success "Malwarebytes installed successfully"
+    call "%LOG%" success "Malwarebytes installed via winget"
     exit /b 0
 )
 
-:: Check if this is an ARM64 platform where Malwarebytes may not be available
-if %MB_RESULT% NEQ 0 (
-    powershell -NoProfile -Command "if ([Environment]::Is64BitOperatingSystem -and (Get-CimInstance Win32_Processor).Architecture -eq 12) { exit 1 }" >nul 2>&1
-    if errorlevel 1 (
-        call "%LOG%" warn "Malwarebytes may not support ARM64 via winget — install manually from malwarebytes.com"
-        exit /b 0
-    )
+:: Winget failed — fall back to direct download
+call "%LOG%" info "Winget install failed, downloading Malwarebytes directly..."
+set "MB_SETUP=%TEMP%\MBSetup.exe"
+powershell -NoProfile -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri '%MALWAREBYTES_URL%' -OutFile '%MB_SETUP%' -UseBasicParsing"
+if errorlevel 1 (
+    call "%LOG%" warn "Failed to download Malwarebytes — install manually from malwarebytes.com"
+    exit /b 0
 )
 
-call "%LOG%" error "Malwarebytes executable not found after install"
-exit /b 1
+call "%LOG%" debug "Running Malwarebytes installer..."
+"%MB_SETUP%" /VERYSILENT /NORESTART
+del "%MB_SETUP%" 2>nul
+
+:: Verify after direct download
+if exist "%MALWAREBYTES_EXE%" (
+    call "%LOG%" success "Malwarebytes installed via direct download"
+    exit /b 0
+)
+
+call "%LOG%" warn "Malwarebytes not found after install — install manually from malwarebytes.com"
+exit /b 0
 
 :: ============================================================================
 :: WINGET SOURCE INITIALIZATION

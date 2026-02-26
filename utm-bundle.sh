@@ -25,12 +25,14 @@ USB_PATH=""
 AUTHKEY=""
 STD_USERNAME=""
 STD_PASSWORD=""
+SSH_KEY_FILE=""
 
 for arg in "$@"; do
     case "$arg" in
         --authkey=*) AUTHKEY="${arg#--authkey=}" ;;
         --username=*) STD_USERNAME="${arg#--username=}" ;;
         --password=*) STD_PASSWORD="${arg#--password=}" ;;
+        --ssh-key=*) SSH_KEY_FILE="${arg#--ssh-key=}" ;;
         --help | -h)
             echo "Usage: utm-bundle.sh <usb-mount-point> [options]"
             echo ""
@@ -40,6 +42,7 @@ for arg in "$@"; do
             echo "  --username=NAME     Standard user account name (default: user)"
             echo "  --password=PASS     Standard user account password"
             echo "  --authkey=KEY       Tailscale auth key (overrides .env)"
+            echo "  --ssh-key=FILE      SSH public key file (default: auto-detect)"
             exit 0
             ;;
         -*)
@@ -121,12 +124,39 @@ if [[ "$STD_PASSWORD" == *'%'* ]]; then
     exit 1
 fi
 
+# SSH public key — from flag or auto-detect
+SSH_PUBKEY=""
+if [[ -n "$SSH_KEY_FILE" ]]; then
+    if [[ ! -f "$SSH_KEY_FILE" ]]; then
+        echo "ERROR: SSH key file not found: $SSH_KEY_FILE"
+        exit 1
+    fi
+    SSH_PUBKEY=$(cat "$SSH_KEY_FILE")
+else
+    for candidate in "$HOME/.ssh/utm_vm.pub" "$HOME/.ssh/id_ed25519.pub"; do
+        if [[ -f "$candidate" ]]; then
+            SSH_PUBKEY=$(cat "$candidate")
+            echo "Auto-detected SSH key: $candidate"
+            break
+        fi
+    done
+    if [[ -z "$SSH_PUBKEY" ]]; then
+        echo "WARNING: No SSH public key found — OpenSSH will install without key-based auth"
+        echo "  To enable: pass --ssh-key=~/.ssh/id_ed25519.pub"
+    fi
+fi
+
 echo ""
 echo "USB Bundle"
 echo "============================================================"
 echo "  Target:     $USB_PATH"
 echo "  Username:   $STD_USERNAME"
 echo "  Auth key:   ${AUTHKEY:0:20}..."
+if [[ -n "$SSH_PUBKEY" ]]; then
+    echo "  SSH key:    ${SSH_PUBKEY:0:30}..."
+else
+    echo "  SSH key:    (none)"
+fi
 echo "============================================================"
 echo ""
 
@@ -207,6 +237,9 @@ SETUPEOF
     echo "set \"TAILSCALE_AUTHKEY=$AUTHKEY\""
     echo "set \"STANDARD_USERNAME=$STD_USERNAME\""
     echo "set \"STANDARD_PASSWORD=$STD_PASSWORD\""
+    if [[ -n "$SSH_PUBKEY" ]]; then
+        echo "set \"ADMIN_SSH_PUBKEY=$SSH_PUBKEY\""
+    fi
     echo ""
 } >> "$USB_PATH/SETUP.bat.tmp"
 
@@ -289,6 +322,7 @@ What gets installed:
 
   - Tailscale VPN (remote access)
   - TightVNC (screen sharing)
+  - OpenSSH Server (SSH tunneling)
   - Google Chrome (with ad blocker)
   - iTunes
   - Malwarebytes (security)
@@ -296,7 +330,7 @@ What gets installed:
   - Firewall rules and security hardening
   - Standard user account
 
-After setup, connect remotely via Tailscale + VNC.
+After setup, connect remotely via Tailscale + VNC or SSH tunnel.
 Check the output/credentials.txt file for VNC password.
 READMEEOF
 

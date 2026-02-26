@@ -41,6 +41,7 @@ call :VerifyTailscale
 call :VerifyTightVNC
 call :VerifyFirewall
 call :VerifyServices
+call :VerifyOpenSSH
 call :VerifyApps
 call :VerifyChromePolicies
 call :VerifyDns
@@ -212,6 +213,57 @@ if %ERRORLEVEL% EQU 0 (
 
 goto :eof
 
+:VerifyOpenSSH
+echo.
+echo Verifying OpenSSH Server...
+
+:: Check 1: sshd service is running
+set /a "TOTAL_CHECKS+=1"
+sc query sshd >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    call :CheckWarn "OpenSSH Server not installed"
+    goto :VerifyOpenSSHDone
+)
+sc query sshd | findstr "RUNNING" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call :CheckPass "sshd service is running"
+) else (
+    call :CheckFail "sshd service is not running"
+)
+
+:: Check 2: Port 22 is listening
+set /a "TOTAL_CHECKS+=1"
+netstat -an | findstr ":%SSH_PORT% .*LISTENING" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call :CheckPass "SSH port %SSH_PORT% is listening"
+) else (
+    call :CheckFail "SSH port %SSH_PORT% is not listening"
+)
+
+:: Check 3: SSH firewall rule exists
+set /a "TOTAL_CHECKS+=1"
+set "SSH_FW_OK=0"
+netsh advfirewall firewall show rule name="OpenSSH-Server-In-TCP" >nul 2>&1
+if %ERRORLEVEL% EQU 0 set "SSH_FW_OK=1"
+netsh advfirewall firewall show rule name="sshd" >nul 2>&1
+if %ERRORLEVEL% EQU 0 set "SSH_FW_OK=1"
+if "%SSH_FW_OK%"=="1" (
+    call :CheckPass "SSH firewall rule exists"
+) else (
+    call :CheckFail "SSH firewall rule not found"
+)
+
+:: Check 4: administrators_authorized_keys file exists
+set /a "TOTAL_CHECKS+=1"
+if exist "C:\ProgramData\ssh\administrators_authorized_keys" (
+    call :CheckPass "administrators_authorized_keys exists"
+) else (
+    call :CheckWarn "administrators_authorized_keys not found — key auth may not work for admins"
+)
+
+:VerifyOpenSSHDone
+goto :eof
+
 :VerifyApps
 echo.
 echo Verifying Essential Apps...
@@ -362,7 +414,9 @@ if defined TAILSCALE_IP (
     echo Connection Information:
     echo   Tailscale IP:  %TAILSCALE_IP%
     echo   VNC Port:      %VNC_PORT%
-    echo   Connect to:    %TAILSCALE_IP%:%VNC_PORT%
+    echo   SSH Port:      %SSH_PORT%
+    echo   VNC direct:    %TAILSCALE_IP%:%VNC_PORT%
+    echo   VNC via SSH:   ssh -L 5900:localhost:5900 Administrator@%TAILSCALE_IP%
 )
 
 if exist "%CREDENTIALS_FILE%" (

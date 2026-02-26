@@ -80,6 +80,9 @@ if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
 call :UninstallTightVNC
 if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
 
+call :UninstallOpenSSH
+if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
+
 call :UninstallTailscale
 if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
 
@@ -116,7 +119,7 @@ echo  WARNING: ROLLBACK CONFIRMATION
 echo ============================================================
 echo.
 echo  This will REMOVE the following components:
-echo    - Standard user account and auto-login
+echo    - Standard user account
 echo    - Chrome policies, forced extensions
 echo    - DNS filtering (revert to automatic)
 echo    - Power settings (revert to Windows defaults)
@@ -124,7 +127,8 @@ echo    - Installed apps (Chrome, iTunes, Malwarebytes)
 echo    - Desktop shortcuts
 echo    - Tailscale VPN (and disconnect from network)
 echo    - TightVNC Server (remote access will be disabled)
-echo    - Firewall rules for VNC
+echo    - OpenSSH Server
+echo    - Firewall rules for VNC and SSH
 echo    - Setup configuration and artifacts
 echo.
 echo  NOTE: Removed bloatware (TikTok, Solitaire, etc.) will NOT be
@@ -151,15 +155,8 @@ if not defined STD_USER_NAME (
 
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would delete user account: %STD_USER_NAME%
-    echo [DRY-RUN] Would remove auto-login registry entries
     exit /b 0
 )
-
-:: Remove auto-login settings first
-reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v "AutoAdminLogon" /f >nul 2>&1
-reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v "DefaultUserName" /f >nul 2>&1
-reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v "DefaultPassword" /f >nul 2>&1
-call "%LOG%" debug "Auto-login settings removed"
 
 :: Delete the user account
 net user "%STD_USER_NAME%" /delete >nul 2>&1
@@ -218,6 +215,7 @@ call "%LOG%" info "Reverting power settings to Windows defaults..."
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would restore default power plan settings
     echo [DRY-RUN] Would remove Windows Update active hours override
+    echo [DRY-RUN] Would remove auto-reboot prevention policy
     exit /b 0
 )
 
@@ -239,6 +237,10 @@ reg delete "HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" /v "ActiveHoursSt
 reg delete "HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" /v "ActiveHoursEnd" /f >nul 2>&1
 reg delete "HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings" /v "IsActiveHoursEnabled" /f >nul 2>&1
 call "%LOG%" debug "Windows Update active hours cleared"
+
+:: Remove auto-reboot prevention policy
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" /v "NoAutoRebootWithLoggedOnUsers" /f >nul 2>&1
+call "%LOG%" debug "Auto-reboot prevention policy removed"
 
 call "%LOG%" success "Power settings reverted to defaults"
 exit /b 0
@@ -311,6 +313,20 @@ if %ERRORLEVEL% EQU 0 (
     call "%LOG%" debug "Rule not found: %FW_RULE_VNC_BLOCK%"
 )
 
+netsh advfirewall firewall delete rule name="OpenSSH-Server-In-TCP" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call "%LOG%" success "Removed rule: OpenSSH-Server-In-TCP"
+) else (
+    call "%LOG%" debug "Rule not found: OpenSSH-Server-In-TCP"
+)
+
+netsh advfirewall firewall delete rule name="sshd" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call "%LOG%" success "Removed rule: sshd"
+) else (
+    call "%LOG%" debug "Rule not found: sshd"
+)
+
 exit /b 0
 
 :UninstallTightVNC
@@ -350,6 +366,40 @@ if defined UNINSTALL_CMD (
 ) else (
     call "%LOG%" warn "Could not find TightVNC uninstaller"
     exit /b 1
+)
+
+exit /b 0
+
+:UninstallOpenSSH
+call "%LOG%" info "Uninstalling OpenSSH Server..."
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would uninstall OpenSSH Server
+    exit /b 0
+)
+
+sc query sshd >nul 2>&1
+if errorlevel 1 (
+    call "%LOG%" debug "OpenSSH Server not installed, skipping"
+    exit /b 0
+)
+
+:: Stop sshd service
+call "%LOG%" debug "Stopping sshd service..."
+net stop sshd >nul 2>&1
+
+:: Remove OpenSSH Server capability
+call "%LOG%" debug "Removing OpenSSH Server capability..."
+powershell -NoProfile -Command "Remove-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    call "%LOG%" success "OpenSSH Server uninstalled"
+) else (
+    call "%LOG%" warn "Could not remove OpenSSH Server capability"
+)
+
+:: Clean up authorized_keys
+if exist "C:\ProgramData\ssh\administrators_authorized_keys" (
+    del "C:\ProgramData\ssh\administrators_authorized_keys" >nul 2>&1
+    call "%LOG%" debug "Removed administrators_authorized_keys"
 )
 
 exit /b 0

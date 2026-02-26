@@ -116,7 +116,7 @@ call "%LOG%" success "Windows Firewall enabled"
 exit /b 0
 
 :RemoveFirewallRules
-call "%LOG%" info "Removing existing VNC firewall rules..."
+call "%LOG%" info "Removing existing firewall rules..."
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would remove firewall rules
     exit /b 0
@@ -124,6 +124,8 @@ if "%DRY_RUN%"=="1" (
 
 netsh advfirewall firewall delete rule name="%FW_RULE_VNC_ALLOW%" >nul 2>&1
 netsh advfirewall firewall delete rule name="%FW_RULE_VNC_BLOCK%" >nul 2>&1
+netsh advfirewall firewall delete rule name="OpenSSH-Server-In-TCP" >nul 2>&1
+netsh advfirewall firewall delete rule name="sshd" >nul 2>&1
 call "%LOG%" debug "Existing rules removed"
 exit /b 0
 
@@ -200,6 +202,22 @@ if errorlevel 1 (
     set "VERIFY_PASSED=0"
 ) else (
     call "%LOG%" debug "Firewall enabled: OK"
+)
+
+:: Verify SSH firewall rule is restricted to Tailscale subnet (if OpenSSH is installed)
+sc query sshd >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    set "SSH_RULE_FOUND=0"
+    netsh advfirewall firewall show rule name="OpenSSH-Server-In-TCP" >nul 2>&1
+    if !ERRORLEVEL! EQU 0 set "SSH_RULE_FOUND=1"
+    netsh advfirewall firewall show rule name="sshd" >nul 2>&1
+    if !ERRORLEVEL! EQU 0 set "SSH_RULE_FOUND=1"
+    if "!SSH_RULE_FOUND!"=="1" (
+        call "%LOG%" debug "SSH firewall rule verified: OK"
+    ) else (
+        call "%LOG%" warn "SSH firewall rule not found — OpenSSH may be unrestricted"
+        set "VERIFY_PASSED=0"
+    )
 )
 
 if "%VERIFY_PASSED%"=="0" (

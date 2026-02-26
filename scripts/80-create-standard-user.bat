@@ -131,7 +131,6 @@ call "%LOG%" info "Configuring user account..."
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would add user to 'Users' group - standard, non-admin
     echo [DRY-RUN] Would set password to expire - force change on first login
-    echo [DRY-RUN] Would set auto-login for the standard user
     exit /b 0
 )
 
@@ -145,13 +144,7 @@ net localgroup Users "%STD_USERNAME%" /add >nul 2>&1
 net user "%STD_USERNAME%" /logonpasswordchg:yes >nul 2>&1
 call "%LOG%" debug "Password change required on next login"
 
-:: Set auto-login to the standard user account
-reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v "AutoAdminLogon" /t REG_SZ /d "1" /f >nul 2>&1
-reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v "DefaultUserName" /t REG_SZ /d "%STD_USERNAME%" /f >nul 2>&1
-reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v "DefaultPassword" /t REG_SZ /d "%STD_PASSWORD%" /f >nul 2>&1
-call "%LOG%" debug "Auto-login configured for '%STD_USERNAME%'"
-
-call "%LOG%" success "User '%STD_USERNAME%' configured as standard user with auto-login"
+call "%LOG%" success "User '%STD_USERNAME%' configured as standard user"
 exit /b 0
 
 :: ============================================================================

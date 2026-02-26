@@ -48,6 +48,9 @@ if errorlevel 1 set /a "CONFIG_ERRORS+=1"
 call :ConfigureTightVNCService
 if errorlevel 1 set /a "CONFIG_ERRORS+=1"
 
+call :ConfigureSSHService
+if errorlevel 1 set /a "CONFIG_ERRORS+=1"
+
 call :VerifyServiceConfiguration
 if errorlevel 1 set /a "CONFIG_ERRORS+=1"
 
@@ -115,6 +118,31 @@ if errorlevel 1 (
 call "%LOG%" success "TightVNC service configured"
 exit /b 0
 
+:ConfigureSSHService
+call "%LOG%" info "Configuring OpenSSH Server service..."
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would configure sshd service for auto-start and recovery
+    exit /b 0
+)
+
+sc query sshd >nul 2>&1
+if errorlevel 1 (
+    call "%LOG%" debug "sshd service not found, skipping"
+    exit /b 0
+)
+
+sc config sshd start= auto >nul 2>&1
+sc failure sshd reset= 86400 actions= restart/60000/restart/60000/restart/60000 >nul 2>&1
+
+sc query sshd | findstr "RUNNING" >nul 2>&1
+if errorlevel 1 (
+    call "%LOG%" debug "Starting sshd service..."
+    net start sshd >nul 2>&1
+)
+
+call "%LOG%" success "sshd service configured"
+exit /b 0
+
 :VerifyServiceConfiguration
 call "%LOG%" info "Verifying service configuration..."
 if "%DRY_RUN%"=="1" (
@@ -138,6 +166,17 @@ if %ERRORLEVEL% EQU 0 (
 ) else (
     call "%LOG%" warn "TightVNC may not auto-start"
     set "VERIFY_PASSED=0"
+)
+
+sc query sshd >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    sc qc sshd 2>nul | findstr "AUTO_START" >nul 2>&1
+    if !ERRORLEVEL! EQU 0 (
+        call "%LOG%" debug "sshd startup type: AUTO (OK)"
+    ) else (
+        call "%LOG%" warn "sshd may not auto-start"
+        set "VERIFY_PASSED=0"
+    )
 )
 
 if "%VERIFY_PASSED%"=="0" (

@@ -79,12 +79,22 @@ set "FW_RULE_VNC_ALLOW=VNC-Tailscale-Allow"
 set "FW_RULE_VNC_BLOCK=VNC-Block-All"
 
 :: ============================================================================
+:: SSH / OPENSSH CONFIGURATION
+:: ============================================================================
+set "SSH_PORT=22"
+set "OPENSSH_PS1=%SCRIPTS_DIR%\setup-openssh-server.ps1"
+set "FW_RULE_SSH_ALLOW=SSH-Tailscale-Allow"
+set "FW_RULE_SSH_BLOCK=SSH-Block-All"
+if not defined ADMIN_SSH_PUBKEY set "ADMIN_SSH_PUBKEY="
+
+:: ============================================================================
 :: ESSENTIAL APPS
 :: ============================================================================
 set "CHROME_MSI_URL=https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise_arm64.msi"
 set "CHROME_EXE=C:\Program Files\Google\Chrome\Application\chrome.exe"
 set "ITUNES_EXE=C:\Program Files\iTunes\iTunes.exe"
 set "MALWAREBYTES_EXE=C:\Program Files\Malwarebytes\Anti-Malware\mbam.exe"
+set "MALWAREBYTES_URL=https://downloads.malwarebytes.com/file/mb-windows"
 
 :: CHROME EXTENSIONS (Chrome Web Store IDs)
 set "EXT_UBLOCK=cjpalhdlnbpafiamejdnhcphjbkeiagm"

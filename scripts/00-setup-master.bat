@@ -14,6 +14,7 @@
 ::   --force             Skip confirmation prompts
 ::   --skip-tailscale    Skip Tailscale installation
 ::   --skip-vnc          Skip TightVNC installation
+::   --skip-openssh      Skip OpenSSH Server installation
 ::   --skip-firewall     Skip firewall configuration
 ::   --skip-hardening    Skip system hardening
 ::   --skip-apps         Skip essential app installation
@@ -51,6 +52,7 @@ set "SKIP_APPS=0"
 set "SKIP_CHROME_HARDENING=0"
 set "SKIP_POWER=0"
 set "SKIP_DNS=0"
+set "SKIP_OPENSSH=0"
 set "SKIP_DESKTOP=0"
 set "SKIP_USER=0"
 
@@ -66,6 +68,7 @@ if /i "%~1"=="-f" set "FORCE=1"
 if /i "%~1"=="--continue-on-error" set "CONTINUE_ON_ERROR=1"
 if /i "%~1"=="--skip-tailscale" set "SKIP_TAILSCALE=1"
 if /i "%~1"=="--skip-vnc" set "SKIP_VNC=1"
+if /i "%~1"=="--skip-openssh" set "SKIP_OPENSSH=1"
 if /i "%~1"=="--skip-firewall" set "SKIP_FIREWALL=1"
 if /i "%~1"=="--skip-hardening" set "SKIP_HARDENING=1"
 if /i "%~1"=="--skip-apps" set "SKIP_APPS=1"
@@ -141,7 +144,7 @@ if "%FORCE%"=="0" (
 )
 
 :: Initialize step tracking
-set "STEPS_TOTAL=12"
+set "STEPS_TOTAL=13"
 set "STEPS_COMPLETED=0"
 set "STEPS_FAILED=0"
 set "STEPS_SKIPPED=0"
@@ -172,7 +175,19 @@ if "%SKIP_VNC%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 3: Configure Firewall
+:: STEP 3: Install OpenSSH Server
+:: ============================================================================
+if "%SKIP_OPENSSH%"=="1" (
+    call :StepSkipped "OpenSSH Server Installation"
+) else (
+    call :RunStep "OpenSSH Server Installation" "25-install-openssh.bat"
+    if errorlevel 1 (
+        if "%CONTINUE_ON_ERROR%"=="0" goto :SetupFailed
+    )
+)
+
+:: ============================================================================
+:: STEP 4: Configure Firewall
 :: ============================================================================
 if "%SKIP_FIREWALL%"=="1" (
     call :StepSkipped "Firewall Configuration"
@@ -184,7 +199,7 @@ if "%SKIP_FIREWALL%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 4: System Hardening
+:: STEP 5: System Hardening
 :: ============================================================================
 if "%SKIP_HARDENING%"=="1" (
     call :StepSkipped "System Hardening"
@@ -196,7 +211,7 @@ if "%SKIP_HARDENING%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 5: Power and Update Settings
+:: STEP 6: Power and Update Settings
 :: ============================================================================
 if "%SKIP_POWER%"=="1" (
     call :StepSkipped "Power and Update Settings"
@@ -208,7 +223,7 @@ if "%SKIP_POWER%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 6: Install Essential Apps
+:: STEP 7: Install Essential Apps
 :: ============================================================================
 if "%SKIP_APPS%"=="1" (
     call :StepSkipped "Essential App Installation"
@@ -220,7 +235,7 @@ if "%SKIP_APPS%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 7: DNS Filtering
+:: STEP 8: DNS Filtering
 :: ============================================================================
 if "%SKIP_DNS%"=="1" (
     call :StepSkipped "DNS Filtering"
@@ -232,7 +247,7 @@ if "%SKIP_DNS%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 8: Harden Chrome
+:: STEP 9: Harden Chrome
 :: ============================================================================
 if "%SKIP_CHROME_HARDENING%"=="1" (
     call :StepSkipped "Chrome Hardening"
@@ -244,7 +259,7 @@ if "%SKIP_CHROME_HARDENING%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 9: Desktop Customization
+:: STEP 10: Desktop Customization
 :: ============================================================================
 if "%SKIP_DESKTOP%"=="1" (
     call :StepSkipped "Desktop Customization"
@@ -256,7 +271,7 @@ if "%SKIP_DESKTOP%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 10: Standard User Account
+:: STEP 11: Standard User Account
 :: ============================================================================
 if "%SKIP_USER%"=="1" (
     call :StepSkipped "Standard User Account"
@@ -268,7 +283,7 @@ if "%SKIP_USER%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 11: Configure Services
+:: STEP 12: Configure Services
 :: ============================================================================
 call :RunStep "Service Configuration" "50-configure-services.bat"
 if errorlevel 1 (
@@ -276,7 +291,7 @@ if errorlevel 1 (
 )
 
 :: ============================================================================
-:: STEP 12: Verify Setup
+:: STEP 13: Verify Setup
 :: ============================================================================
 call :RunStep "Setup Verification" "90-verify-setup.bat"
 set "VERIFY_RESULT=%ERRORLEVEL%"
@@ -323,16 +338,17 @@ echo  This script will:
 echo.
 if "%SKIP_TAILSCALE%"=="0" echo    1. Install Tailscale VPN
 if "%SKIP_VNC%"=="0"       echo    2. Install TightVNC Server
-if "%SKIP_FIREWALL%"=="0"  echo    3. Configure Windows Firewall
-if "%SKIP_HARDENING%"=="0" echo    4. Apply security hardening
-if "%SKIP_POWER%"=="0"     echo    5. Configure power and update settings
-if "%SKIP_APPS%"=="0"      echo    6. Install essential apps (Chrome, iTunes, Malwarebytes)
-if "%SKIP_DNS%"=="0"       echo    7. Configure DNS filtering (malware/phishing protection)
-if "%SKIP_CHROME_HARDENING%"=="0" echo    8. Harden Chrome browser
-if "%SKIP_DESKTOP%"=="0"   echo    9. Customize desktop and Start menu
-if "%SKIP_USER%"=="0"      echo   10. Create standard user account
-echo   11. Configure services for auto-start
-echo   12. Verify the installation
+if "%SKIP_OPENSSH%"=="0"   echo    3. Install OpenSSH Server
+if "%SKIP_FIREWALL%"=="0"  echo    4. Configure Windows Firewall
+if "%SKIP_HARDENING%"=="0" echo    5. Apply security hardening
+if "%SKIP_POWER%"=="0"     echo    6. Configure power and update settings
+if "%SKIP_APPS%"=="0"      echo    7. Install essential apps (Chrome, iTunes, Malwarebytes)
+if "%SKIP_DNS%"=="0"       echo    8. Configure DNS filtering (malware/phishing protection)
+if "%SKIP_CHROME_HARDENING%"=="0" echo    9. Harden Chrome browser
+if "%SKIP_DESKTOP%"=="0"   echo   10. Customize desktop and Start menu
+if "%SKIP_USER%"=="0"      echo   11. Create standard user account
+echo   12. Configure services for auto-start
+echo   13. Verify the installation
 echo.
 echo  ============================================================
 echo.
@@ -410,9 +426,13 @@ if defined TAILSCALE_IP (
     echo.
     echo   Tailscale IP:  %TAILSCALE_IP%
     echo   VNC Port:      %VNC_PORT%
+    echo   SSH Port:      %SSH_PORT%
     echo.
-    echo   To connect, use a VNC client:
+    echo   To connect via VNC:
     echo     Address: %TAILSCALE_IP%:%VNC_PORT%
+    echo.
+    echo   To connect via SSH tunnel:
+    echo     ssh -L 5900:localhost:5900 Administrator@%TAILSCALE_IP%
     echo.
 )
 
@@ -469,6 +489,7 @@ echo   --continue-on-error Continue if a step fails
 echo.
 echo   --skip-tailscale    Skip Tailscale installation
 echo   --skip-vnc          Skip TightVNC installation
+echo   --skip-openssh      Skip OpenSSH Server installation
 echo   --skip-firewall     Skip firewall configuration
 echo   --skip-hardening    Skip system hardening
 echo   --skip-apps         Skip essential app installation
