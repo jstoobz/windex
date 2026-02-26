@@ -131,11 +131,15 @@ if "%DRY_RUN%"=="1" (
 set "UPDATE_KEY=HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings"
 
 :: Set active hours 8am to 11pm — no restarts during this window
+set "UPDATE_ERRORS=0"
 reg add "%UPDATE_KEY%" /v "ActiveHoursStart" /t REG_DWORD /d 8 /f >nul 2>&1
+if errorlevel 1 set /a "UPDATE_ERRORS+=1"
 reg add "%UPDATE_KEY%" /v "ActiveHoursEnd" /t REG_DWORD /d 23 /f >nul 2>&1
+if errorlevel 1 set /a "UPDATE_ERRORS+=1"
 reg add "%UPDATE_KEY%" /v "IsActiveHoursEnabled" /t REG_DWORD /d 1 /f >nul 2>&1
+if errorlevel 1 set /a "UPDATE_ERRORS+=1"
 
-if errorlevel 1 (
+if %UPDATE_ERRORS% GTR 0 (
     call "%LOG%" error "Failed to set Windows Update active hours"
     exit /b 1
 )

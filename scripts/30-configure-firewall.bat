@@ -41,15 +41,20 @@ if errorlevel 1 (
 
 :: Check if firewall rules already exist
 call :CheckFirewallRulesExist
-if %ERRORLEVEL% EQU 0 (
-    call "%LOG%" info "Firewall rules already configured"
-    call :VerifyFirewallRules
-    if %ERRORLEVEL% EQU 0 (
-        call "%LOG%" success "Firewall rules are correctly configured"
-        exit /b %EXIT_SUCCESS%
+if !ERRORLEVEL! EQU 0 (
+    if not "%FORCE%"=="1" (
+        call "%LOG%" info "Firewall rules already configured"
+        call :VerifyFirewallRules
+        if !ERRORLEVEL! EQU 0 (
+            call "%LOG%" success "Firewall rules are correctly configured"
+            exit /b %EXIT_SUCCESS%
+        ) else (
+            call "%LOG%" warn "Firewall rules exist but may be misconfigured"
+            call "%LOG%" info "Removing existing rules and recreating..."
+            call :RemoveFirewallRules
+        )
     ) else (
-        call "%LOG%" warn "Firewall rules exist but may be misconfigured"
-        call "%LOG%" info "Removing existing rules and recreating..."
+        call "%LOG%" info "Force mode: removing existing rules and recreating..."
         call :RemoveFirewallRules
     )
 )
