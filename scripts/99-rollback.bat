@@ -154,16 +154,23 @@ if not defined STD_USER_NAME (
 )
 
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would delete user account: %STD_USER_NAME%
+    echo [DRY-RUN] Would delete user account and profile: %STD_USER_NAME%
     exit /b 0
 )
+
+:: Remove user profile first to avoid orphaned ProfileList entries
+powershell -NoProfile -Command ^
+    "Get-CimInstance Win32_UserProfile | " ^
+    "Where-Object { $_.LocalPath -like \"C:\Users\%STD_USER_NAME%*\" } | " ^
+    "Remove-CimInstance" >nul 2>&1
+call "%LOG%" debug "Cleaned up user profile for '%STD_USER_NAME%'"
 
 :: Delete the user account
 net user "%STD_USER_NAME%" /delete >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     call "%LOG%" success "User '%STD_USER_NAME%' deleted"
 ) else (
-    call "%LOG%" warn "Could not delete user '%STD_USER_NAME%' (may not exist)"
+    call "%LOG%" warn "Could not delete user '%STD_USER_NAME%' [may not exist]"
 )
 
 exit /b 0
