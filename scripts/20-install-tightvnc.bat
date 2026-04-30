@@ -41,16 +41,16 @@ if errorlevel 1 (
 
 :: Check if already installed (idempotency)
 call :CheckTightVNCInstalled
-if %ERRORLEVEL% EQU 0 (
+if !ERRORLEVEL! EQU 0 (
     call "%LOG%" info "TightVNC is already installed"
     call :VerifyTightVNCService
-    if %ERRORLEVEL% EQU 0 (
+    if !ERRORLEVEL! EQU 0 (
         call "%LOG%" success "TightVNC is installed and running"
         exit /b %EXIT_SUCCESS%
     ) else (
         call "%LOG%" warn "TightVNC installed but service not running"
         call :StartTightVNCService
-        exit /b %ERRORLEVEL%
+        exit /b !ERRORLEVEL!
     )
 )
 

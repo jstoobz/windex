@@ -236,7 +236,8 @@ if $VERBOSE; then
     master_cmd="$master_cmd --verbose"
 fi
 
-log "CMD: $master_cmd"
+safe_cmd=$(echo "$master_cmd" | sed -e 's/TAILSCALE_AUTHKEY=[^ ]*/TAILSCALE_AUTHKEY=REDACTED/g' -e 's/STANDARD_PASSWORD=[^"]*"/STANDARD_PASSWORD=REDACTED"/g')
+log "CMD: $safe_cmd"
 echo ""
 
 # Run and capture output (tee to both console and file)
@@ -271,10 +272,11 @@ fi
 # ── Step 7: Pull credentials file if it exists ───────────────────
 if ssh_cmd "if exist ${GUEST_DIR_WIN}\\output\\credentials.txt echo exists" 2> /dev/null | grep -q "exists"; then
     log "Pulling credentials file..."
-    scp_pull "$GUEST_DIR/output/credentials.txt" "$run_dir/credentials.txt" \
-        && chmod 600 "$run_dir/credentials.txt" || {
+    if scp_pull "$GUEST_DIR/output/credentials.txt" "$run_dir/credentials.txt"; then
+        chmod 600 "$run_dir/credentials.txt"
+    else
         log "WARN: Failed to pull credentials.txt"
-    }
+    fi
 fi
 
 # ── Summary ──────────────────────────────────────────────────────

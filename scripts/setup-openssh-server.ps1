@@ -48,15 +48,29 @@ Write-Host "[OK] sshd started and set to auto-start" -ForegroundColor Green
 # Step 3: Verify firewall rule exists and allow all profiles
 # Windows auto-creates a rule on install but restricts it to Private profile.
 # QEMU SLIRP network is classified as Public, so SSH would be blocked.
+# When TAILSCALE_SUBNET is set (provisioning suite), restrict immediately to
+# avoid leaving port 22 world-open between this script and the .bat wrapper.
 $fwRule = Get-NetFirewallRule -Name *ssh* -ErrorAction SilentlyContinue
+$tsSubnet = $env:TAILSCALE_SUBNET
 if ($fwRule) {
-    Set-NetFirewallRule -Name $fwRule.Name -Profile Any
-    Write-Host "[OK] Firewall rule exists: $($fwRule.Name) (set to all profiles)" -ForegroundColor Green
+    if ($tsSubnet) {
+        Set-NetFirewallRule -Name $fwRule.Name -Profile Any -RemoteAddress $tsSubnet
+        Write-Host "[OK] Firewall rule exists: $($fwRule.Name) (restricted to $tsSubnet)" -ForegroundColor Green
+    } else {
+        Set-NetFirewallRule -Name $fwRule.Name -Profile Any
+        Write-Host "[OK] Firewall rule exists: $($fwRule.Name) (set to all profiles)" -ForegroundColor Green
+    }
 } else {
     Write-Host "[....] Creating firewall rule for SSH..."
-    New-NetFirewallRule -Name sshd -DisplayName 'OpenSSH Server (sshd)' `
-        -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 -Profile Any
-    Write-Host "[OK] Firewall rule created (all profiles)" -ForegroundColor Green
+    $ruleParams = @{
+        Name = 'sshd'; DisplayName = 'OpenSSH Server (sshd)'
+        Enabled = 'True'; Direction = 'Inbound'; Protocol = 'TCP'
+        Action = 'Allow'; LocalPort = 22; Profile = 'Any'
+    }
+    if ($tsSubnet) { $ruleParams['RemoteAddress'] = $tsSubnet }
+    New-NetFirewallRule @ruleParams | Out-Null
+    $scopeMsg = if ($tsSubnet) { "restricted to $tsSubnet" } else { "all profiles" }
+    Write-Host "[OK] Firewall rule created ($scopeMsg)" -ForegroundColor Green
 }
 
 # Step 4: Set up key-based auth
@@ -136,8 +150,8 @@ if (Test-Path $sshdConfig) {
     $config = Get-Content $sshdConfig -Raw
 
     # Ensure PubkeyAuthentication is enabled
-    if ($config -match "^#?PubkeyAuthentication") {
-        $config = $config -replace "^#?PubkeyAuthentication.*", "PubkeyAuthentication yes"
+    if ($config -match "(?m)^#?PubkeyAuthentication") {
+        $config = $config -replace "(?m)^#?PubkeyAuthentication.*", "PubkeyAuthentication yes"
     }
 
     Set-Content -Path $sshdConfig -Value $config

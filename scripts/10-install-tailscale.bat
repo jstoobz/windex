@@ -54,16 +54,16 @@ if "%TAILSCALE_AUTHKEY%"=="" (
 
 :: Check if already installed (idempotency)
 call :CheckTailscaleInstalled
-if %ERRORLEVEL% EQU 0 (
+if !ERRORLEVEL! EQU 0 (
     call "%LOG%" info "Tailscale is already installed"
     call :VerifyTailscaleConnection
-    if %ERRORLEVEL% EQU 0 (
+    if !ERRORLEVEL! EQU 0 (
         call "%LOG%" success "Tailscale is installed and connected"
         exit /b %EXIT_SUCCESS%
     ) else (
         call "%LOG%" info "Tailscale installed but not connected, attempting to connect..."
         call :ConnectTailscale
-        exit /b %ERRORLEVEL%
+        exit /b !ERRORLEVEL!
     )
 )
 
