@@ -98,6 +98,17 @@ shift
 goto :ParseArgs
 :ParseArgsDone
 
+:: Validate password doesn't contain cmd.exe metacharacters
+if defined STANDARD_PASSWORD (
+    echo !STANDARD_PASSWORD! | findstr /r "[!%%^&|<>]" >nul 2>&1
+    if not errorlevel 1 (
+        echo ERROR: Password contains unsupported characters.
+        echo   Cannot contain: ^! %% ^^ ^& ^| ^< ^> "
+        echo   These break cmd.exe variable expansion or command chaining.
+        exit /b %EXIT_PREREQ_FAILED%
+    )
+)
+
 :: ============================================================================
 :: MAIN EXECUTION
 :: ============================================================================
@@ -384,7 +395,7 @@ if %STEP_RESULT% EQU 0 (
     exit /b 0
 ) else if %STEP_RESULT% EQU 5 (
     set /a "STEPS_COMPLETED+=1"
-    exit /b 0
+    exit /b 5
 ) else (
     set /a "STEPS_FAILED+=1"
     exit /b %STEP_RESULT%

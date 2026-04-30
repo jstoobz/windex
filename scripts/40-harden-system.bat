@@ -40,10 +40,13 @@ if errorlevel 1 (
 
 :: Check if already hardened
 reg query "%SETUP_REG_KEY%" /v "SystemHardened" >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    call "%LOG%" info "System hardening already applied"
-    call "%LOG%" success "System hardening is in place"
-    exit /b %EXIT_SUCCESS%
+if !ERRORLEVEL! EQU 0 (
+    if not "%FORCE%"=="1" (
+        call "%LOG%" info "System hardening already applied"
+        call "%LOG%" success "System hardening is in place"
+        exit /b %EXIT_SUCCESS%
+    )
+    call "%LOG%" info "Re-applying hardening [--force]"
 )
 
 :: Apply hardening measures

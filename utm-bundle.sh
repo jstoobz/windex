@@ -117,13 +117,10 @@ if [[ -z "$STD_PASSWORD" ]]; then
     done
 fi
 
-# Reject dangerous characters
-if [[ "$STD_PASSWORD" == *'!'* ]]; then
-    echo "ERROR: Password cannot contain '!' (eaten by cmd.exe EnableDelayedExpansion)"
-    exit 1
-fi
-if [[ "$STD_PASSWORD" == *'%'* ]]; then
-    echo "ERROR: Password cannot contain '%' (triggers cmd.exe variable expansion)"
+# Reject characters dangerous in cmd.exe
+if [[ "$STD_PASSWORD" =~ [!\%\&\|\^\<\>\"] ]]; then
+    echo "ERROR: Password cannot contain cmd.exe metacharacters: ! % & | ^ < > \""
+    echo "  These characters break cmd.exe variable expansion or command chaining."
     exit 1
 fi
 

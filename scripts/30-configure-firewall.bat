@@ -190,7 +190,20 @@ if errorlevel 1 (
     call "%LOG%" error "Allow rule not found: %FW_RULE_VNC_ALLOW%"
     set "VERIFY_PASSED=0"
 ) else (
-    call "%LOG%" debug "Allow rule verified: OK"
+    :: Verify rule is enabled and scoped to Tailscale subnet
+    netsh advfirewall firewall show rule name="%FW_RULE_VNC_ALLOW%" | findstr /i "Enabled.*Yes" >nul 2>&1
+    if errorlevel 1 (
+        call "%LOG%" error "Allow rule exists but is disabled: %FW_RULE_VNC_ALLOW%"
+        set "VERIFY_PASSED=0"
+    ) else (
+        netsh advfirewall firewall show rule name="%FW_RULE_VNC_ALLOW%" | findstr /i "%TAILSCALE_SUBNET%" >nul 2>&1
+        if errorlevel 1 (
+            call "%LOG%" error "Allow rule not scoped to Tailscale subnet: %FW_RULE_VNC_ALLOW%"
+            set "VERIFY_PASSED=0"
+        ) else (
+            call "%LOG%" debug "Allow rule verified: enabled, scoped to %TAILSCALE_SUBNET%"
+        )
+    )
 )
 
 netsh advfirewall firewall show rule name="%FW_RULE_VNC_BLOCK%" >nul 2>&1
@@ -198,7 +211,13 @@ if errorlevel 1 (
     call "%LOG%" error "Block rule not found: %FW_RULE_VNC_BLOCK%"
     set "VERIFY_PASSED=0"
 ) else (
-    call "%LOG%" debug "Block rule verified: OK"
+    netsh advfirewall firewall show rule name="%FW_RULE_VNC_BLOCK%" | findstr /i "Enabled.*Yes" >nul 2>&1
+    if errorlevel 1 (
+        call "%LOG%" error "Block rule exists but is disabled: %FW_RULE_VNC_BLOCK%"
+        set "VERIFY_PASSED=0"
+    ) else (
+        call "%LOG%" debug "Block rule verified: enabled"
+    )
 )
 
 netsh advfirewall show allprofiles state | findstr "ON" >nul 2>&1
