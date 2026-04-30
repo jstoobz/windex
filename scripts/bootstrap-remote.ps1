@@ -12,20 +12,25 @@
 #>
 param(
     [string]$TailscaleAuthKey = $env:TS_AUTHKEY,
-    [string]$VncPassword = $env:VNC_PASSWORD
+    [string]$VncPassword = $env:VNC_PASSWORD,
+    [string]$StandardUsername = $env:STANDARD_USERNAME
 )
 
 $ErrorActionPreference = 'Stop'
 
-# ── Config ───────────────────────────────────────────────────────────
-$TailscaleUrl     = 'https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe'
-$TailscaleExe     = 'C:\Program Files\Tailscale\tailscale.exe'
-$TightVncUrl      = 'https://www.tightvnc.com/download/2.8.85/tightvnc-2.8.85-gpl-setup-64bit.msi'
-$TightVncDir      = 'C:\Program Files\TightVNC'
-$TightVncService  = 'tvnserver'
-$VncPort          = 5900
-$TailscaleSubnet  = '100.64.0.0/10'
-$VncPasswordLength = 16
+# ── Config (from env with defaults — matches lib/config.bat) ────────
+$TailscaleUrl      = if ($env:TAILSCALE_URL)      { $env:TAILSCALE_URL }      else { 'https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe' }
+$TailscaleDir      = if ($env:TAILSCALE_DIR)       { $env:TAILSCALE_DIR }      else { 'C:\Program Files\Tailscale' }
+$TailscaleExe      = "$TailscaleDir\tailscale.exe"
+$TightVncUrl       = if ($env:TIGHTVNC_URL)        { $env:TIGHTVNC_URL }       else { 'https://www.tightvnc.com/download/2.8.85/tightvnc-2.8.85-gpl-setup-64bit.msi' }
+$TightVncDir       = if ($env:TIGHTVNC_DIR)        { $env:TIGHTVNC_DIR }       else { 'C:\Program Files\TightVNC' }
+$TightVncService   = if ($env:TIGHTVNC_SERVICE)    { $env:TIGHTVNC_SERVICE }   else { 'tvnserver' }
+$VncPort           = if ($env:VNC_PORT)             { [int]$env:VNC_PORT }      else { 5900 }
+$TailscaleSubnet   = if ($env:TAILSCALE_SUBNET)    { $env:TAILSCALE_SUBNET }   else { '100.64.0.0/10' }
+$VncPasswordLength = if ($env:VNC_PASSWORD_LENGTH)  { [int]$env:VNC_PASSWORD_LENGTH } else { 16 }
+$FwRuleVncAllow    = if ($env:FW_RULE_VNC_ALLOW)   { $env:FW_RULE_VNC_ALLOW }  else { 'VNC-Tailscale-Allow' }
+$FwRuleVncBlock    = if ($env:FW_RULE_VNC_BLOCK)   { $env:FW_RULE_VNC_BLOCK }  else { 'VNC-Block-All' }
+$FwRuleSshAllow    = if ($env:FW_RULE_SSH_ALLOW)   { $env:FW_RULE_SSH_ALLOW }  else { 'SSH-Tailscale-Allow' }
 
 # ── Helpers ──────────────────────────────────────────────────────────
 function Write-Step($msg) { Write-Host "`n>> $msg" -ForegroundColor Cyan }
@@ -152,26 +157,26 @@ Write-Ok "VNC server running on port $VncPort"
 # ── 3. Firewall ──────────────────────────────────────────────────────
 Write-Step "Configuring firewall..."
 
-# Remove stale rules
-foreach ($name in @('VNC-Tailscale-Allow', 'VNC-Block-All')) {
-    Remove-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue
+# Remove stale VNC rules
+foreach ($name in @($FwRuleVncAllow, $FwRuleVncBlock)) {
+    Remove-NetFirewallRule -Name $name -ErrorAction SilentlyContinue
 }
 
 # Allow VNC only from Tailscale subnet
-New-NetFirewallRule -DisplayName 'VNC-Tailscale-Allow' `
+New-NetFirewallRule -Name $FwRuleVncAllow -DisplayName $FwRuleVncAllow `
     -Direction Inbound -Protocol TCP -LocalPort $VncPort `
     -RemoteAddress $TailscaleSubnet -Action Allow -Profile Any | Out-Null
 
 # Block VNC from everywhere else
-New-NetFirewallRule -DisplayName 'VNC-Block-All' `
+New-NetFirewallRule -Name $FwRuleVncBlock -DisplayName $FwRuleVncBlock `
     -Direction Inbound -Protocol TCP -LocalPort $VncPort `
     -Action Block -Profile Any | Out-Null
 
-# Fix OpenSSH rule if sshd exists (allow all profiles)
+# Restrict SSH to Tailscale subnet (not left wide open)
 $sshdRule = Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue
 if ($sshdRule) {
-    Set-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -Profile Any
-    Write-Ok "SSH firewall rule updated to all profiles"
+    Set-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -Profile Any -RemoteAddress $TailscaleSubnet
+    Write-Ok "SSH firewall rule restricted to Tailscale subnet"
 }
 
 Write-Ok "VNC allowed from Tailscale only ($TailscaleSubnet)"
@@ -179,17 +184,22 @@ Write-Ok "VNC allowed from Tailscale only ($TailscaleSubnet)"
 # ── 4. Profile cleanup ──────────────────────────────────────────────
 Write-Step "Checking for orphaned user profiles..."
 
-$orphaned = Get-CimInstance Win32_UserProfile |
-    Where-Object { $_.LocalPath -like 'C:\Users\User*' } |
-    Where-Object { -not (Get-LocalUser -SID $_.SID -ErrorAction SilentlyContinue) }
+$orphaned = $null
+if ($StandardUsername) {
+    $orphaned = Get-CimInstance Win32_UserProfile |
+        Where-Object { $_.LocalPath -eq "C:\Users\$StandardUsername" -or $_.LocalPath -like "C:\Users\$StandardUsername.*" } |
+        Where-Object { -not (Get-LocalUser -SID $_.SID -ErrorAction SilentlyContinue) }
 
-if ($orphaned) {
-    $count = @($orphaned).Count
-    Write-Warn "Found $count orphaned User profile(s) — removing..."
-    $orphaned | Remove-CimInstance
-    Write-Ok "Removed $count orphaned profile(s) — reboot to clear lock screen tiles"
+    if ($orphaned) {
+        $count = @($orphaned).Count
+        Write-Warn "Found $count orphaned $StandardUsername profile(s) — removing..."
+        $orphaned | Remove-CimInstance
+        Write-Ok "Removed $count orphaned profile(s) — reboot to clear lock screen tiles"
+    } else {
+        Write-Ok "No orphaned profiles found"
+    }
 } else {
-    Write-Ok "No orphaned profiles found"
+    Write-Ok "No standard username set — skipping profile cleanup"
 }
 
 # ── Done ─────────────────────────────────────────────────────────────

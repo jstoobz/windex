@@ -2,7 +2,8 @@
 :: ============================================================================
 :: config.bat - Centralized Configuration for Remote Access Setup
 :: ============================================================================
-:: This file sets environment variables. Call it, then use the variables.
+:: All values read from environment first, falling back to defaults.
+:: Set values in .env or export before running scripts.
 :: DO NOT define labels/functions here - they won't be accessible from caller.
 :: ============================================================================
 
@@ -30,7 +31,9 @@ set "ADMIN=%LIB_DIR%\admin.bat"
 
 :: Parent directories (scripts and base)
 for %%I in ("%LIB_DIR%\..") do set "SCRIPTS_DIR=%%~fI"
-for %%I in ("%SCRIPTS_DIR%\..") do set "BASE_DIR=%%~fI"
+if not defined BASE_DIR (
+    for %%I in ("%SCRIPTS_DIR%\..") do set "BASE_DIR=%%~fI"
+)
 
 :: Output directories
 set "LOG_DIR=%BASE_DIR%\logs"
@@ -40,10 +43,10 @@ set "OUTPUT_DIR=%BASE_DIR%\output"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" 2>nul
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%" 2>nul
 
-:: Log file (timestamped) - PowerShell for Win11 compat (wmic is deprecated)
-for /f "tokens=*" %%I in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMddHHmm"') do set "DATETIME=%%I"
+:: Log file (timestamped with seconds to avoid collisions)
+for /f "tokens=*" %%I in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMddHHmmss"') do set "DATETIME=%%I"
 set "DATE_STAMP=%DATETIME:~0,8%"
-set "TIME_STAMP=%DATETIME:~8,4%"
+set "TIME_STAMP=%DATETIME:~8,6%"
 set "LOG_FILE=%LOG_DIR%\setup_%DATE_STAMP%_%TIME_STAMP%.log"
 
 :: Credentials output file
@@ -52,49 +55,49 @@ set "CREDENTIALS_FILE=%OUTPUT_DIR%\credentials.txt"
 :: ============================================================================
 :: DOWNLOAD URLs
 :: ============================================================================
-set "TAILSCALE_URL=https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe"
-set "TIGHTVNC_URL=https://www.tightvnc.com/download/2.8.85/tightvnc-2.8.85-gpl-setup-64bit.msi"
+if not defined TAILSCALE_URL set "TAILSCALE_URL=https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe"
+if not defined TIGHTVNC_URL set "TIGHTVNC_URL=https://www.tightvnc.com/download/2.8.85/tightvnc-2.8.85-gpl-setup-64bit.msi"
 
 :: ============================================================================
 :: TAILSCALE CONFIGURATION
 :: ============================================================================
 if not defined TAILSCALE_AUTHKEY set "TAILSCALE_AUTHKEY="
-set "TAILSCALE_DIR=C:\Program Files\Tailscale"
+if not defined TAILSCALE_DIR set "TAILSCALE_DIR=C:\Program Files\Tailscale"
 set "TAILSCALE_EXE=%TAILSCALE_DIR%\tailscale.exe"
-set "TAILSCALE_SUBNET=100.64.0.0/10"
+if not defined TAILSCALE_SUBNET set "TAILSCALE_SUBNET=100.64.0.0/10"
 
 :: ============================================================================
-:: TIGHTVNC CONFIGURATION
+:: VNC CONFIGURATION
 :: ============================================================================
-set "VNC_PORT=5900"
-set "VNC_PASSWORD_LENGTH=16"
-set "VNC_PASSWORD_SPECIAL_CHARS=4"
-set "TIGHTVNC_DIR=C:\Program Files\TightVNC"
-set "TIGHTVNC_SERVICE=tvnserver"
+if not defined VNC_PORT set "VNC_PORT=5900"
+if not defined VNC_PASSWORD_LENGTH set "VNC_PASSWORD_LENGTH=16"
+if not defined TIGHTVNC_DIR set "TIGHTVNC_DIR=C:\Program Files\TightVNC"
+if not defined TIGHTVNC_SERVICE set "TIGHTVNC_SERVICE=tvnserver"
 
 :: ============================================================================
 :: FIREWALL CONFIGURATION
 :: ============================================================================
-set "FW_RULE_VNC_ALLOW=VNC-Tailscale-Allow"
-set "FW_RULE_VNC_BLOCK=VNC-Block-All"
+if not defined FW_RULE_VNC_ALLOW set "FW_RULE_VNC_ALLOW=VNC-Tailscale-Allow"
+if not defined FW_RULE_VNC_BLOCK set "FW_RULE_VNC_BLOCK=VNC-Block-All"
 
 :: ============================================================================
 :: SSH / OPENSSH CONFIGURATION
 :: ============================================================================
-set "SSH_PORT=22"
+if not defined SSH_PORT set "SSH_PORT=22"
 set "OPENSSH_PS1=%SCRIPTS_DIR%\setup-openssh-server.ps1"
-set "FW_RULE_SSH_ALLOW=SSH-Tailscale-Allow"
-set "FW_RULE_SSH_BLOCK=SSH-Block-All"
+if not defined FW_RULE_SSH_ALLOW set "FW_RULE_SSH_ALLOW=SSH-Tailscale-Allow"
+if not defined FW_RULE_SSH_BLOCK set "FW_RULE_SSH_BLOCK=SSH-Block-All"
 if not defined ADMIN_SSH_PUBKEY set "ADMIN_SSH_PUBKEY="
 
 :: ============================================================================
 :: ESSENTIAL APPS
 :: ============================================================================
-set "CHROME_MSI_URL=https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise_arm64.msi"
+if not defined CHROME_MSI_URL set "CHROME_MSI_URL=https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise_arm64.msi"
 set "CHROME_EXE=C:\Program Files\Google\Chrome\Application\chrome.exe"
+
 set "ITUNES_EXE=C:\Program Files\iTunes\iTunes.exe"
+if not defined MALWAREBYTES_URL set "MALWAREBYTES_URL=https://downloads.malwarebytes.com/file/mb-windows"
 set "MALWAREBYTES_EXE=C:\Program Files\Malwarebytes\Anti-Malware\mbam.exe"
-set "MALWAREBYTES_URL=https://downloads.malwarebytes.com/file/mb-windows"
 
 :: CHROME EXTENSIONS (Chrome Web Store IDs)
 set "EXT_UBLOCK=cjpalhdlnbpafiamejdnhcphjbkeiagm"
@@ -102,12 +105,16 @@ set "EXT_UBLOCK=cjpalhdlnbpafiamejdnhcphjbkeiagm"
 :: ============================================================================
 :: DNS CONFIGURATION
 :: ============================================================================
-:: Cloudflare Family: blocks malware + phishing domains
-set "DNS_PRIMARY=1.1.1.3"
-set "DNS_SECONDARY=1.0.0.3"
+if not defined DNS_PRIMARY set "DNS_PRIMARY=1.1.1.3"
+if not defined DNS_SECONDARY set "DNS_SECONDARY=1.0.0.3"
 
 :: ============================================================================
-:: STANDARD USER ACCOUNT (optional — set via --username/--password args)
+:: CONNECTIVITY
+:: ============================================================================
+if not defined CONNECTIVITY_CHECK_IP set "CONNECTIVITY_CHECK_IP=8.8.8.8"
+
+:: ============================================================================
+:: STANDARD USER ACCOUNT (optional — set via --username/--password args or .env)
 :: ============================================================================
 if not defined STANDARD_USERNAME set "STANDARD_USERNAME="
 if not defined STANDARD_PASSWORD set "STANDARD_PASSWORD="
@@ -124,13 +131,6 @@ if not defined DRY_RUN set "DRY_RUN=0"
 if not defined VERBOSE set "VERBOSE=0"
 if not defined CONTINUE_ON_ERROR set "CONTINUE_ON_ERROR=0"
 if not defined FORCE set "FORCE=0"
-
-:: ============================================================================
-:: TIMEOUTS AND RETRIES
-:: ============================================================================
-set "DOWNLOAD_TIMEOUT=300"
-set "MAX_RETRIES=3"
-set "SERVICE_TIMEOUT=60"
 
 :: ============================================================================
 :: EXIT CODES (Standardized)

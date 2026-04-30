@@ -39,7 +39,7 @@ for arg in "$@"; do
             echo "  <usb-mount-point>   Path to mounted USB drive (e.g. /Volumes/PROVISION)"
             echo ""
             echo "Options:"
-            echo "  --username=NAME     Standard user account name (default: user)"
+            echo "  --username=NAME     Standard user account name (required)"
             echo "  --password=PASS     Standard user account password"
             echo "  --authkey=KEY       Tailscale auth key (overrides .env)"
             echo "  --ssh-key=FILE      SSH public key file (default: auto-detect)"
@@ -92,8 +92,11 @@ fi
 
 # Interactive prompts for missing credentials
 if [[ -z "$STD_USERNAME" ]]; then
-    read -rp "Standard username [user]: " STD_USERNAME
-    STD_USERNAME="${STD_USERNAME:-user}"
+    read -rp "Standard username: " STD_USERNAME
+    if [[ -z "$STD_USERNAME" ]]; then
+        echo "ERROR: Username is required (pass --username= or set STANDARD_USERNAME in .env)"
+        exit 1
+    fi
 fi
 
 if [[ -z "$STD_PASSWORD" ]]; then

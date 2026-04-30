@@ -65,7 +65,7 @@ if [[ -z "$SSH_USER" ]]; then
     echo "ERROR: --user=<winuser> is required"
     exit 1
 fi
-if [[ -z "$AUTHKEY" && -n "$TAILSCALE_AUTHKEY" ]]; then
+if [[ -z "$AUTHKEY" && -n "${TAILSCALE_AUTHKEY:-}" ]]; then
     AUTHKEY="$TAILSCALE_AUTHKEY"
 fi
 if [[ -z "$AUTHKEY" && "$DRY_RUN" == false ]]; then
