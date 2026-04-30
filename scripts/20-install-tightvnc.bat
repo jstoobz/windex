@@ -126,12 +126,15 @@ exit /b 0
 
 :PreflightChecks
 call "%LOG%" info "Running pre-flight checks..."
+if "%CONNECTIVITY_CHECKED%"=="1" goto :PreflightDone
 ping -n 1 -w 3000 %CONNECTIVITY_CHECK_IP% >nul 2>&1
 if errorlevel 1 (
     call "%LOG%" error "No internet connectivity"
     exit /b 1
 )
+set "CONNECTIVITY_CHECKED=1"
 call "%LOG%" debug "Internet connectivity: OK"
+:PreflightDone
 call "%LOG%" success "Pre-flight checks passed"
 exit /b 0
 

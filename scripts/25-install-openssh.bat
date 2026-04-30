@@ -100,12 +100,15 @@ if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would verify internet connectivity
     exit /b 0
 )
-ping -n 1 -w 3000 8.8.8.8 >nul 2>&1
+if "%CONNECTIVITY_CHECKED%"=="1" goto :PreflightDone
+ping -n 1 -w 3000 %CONNECTIVITY_CHECK_IP% >nul 2>&1
 if errorlevel 1 (
     call "%LOG%" error "No internet connectivity (required for OpenSSH capability install)"
     exit /b 1
 )
+set "CONNECTIVITY_CHECKED=1"
 call "%LOG%" debug "Internet connectivity: OK"
+:PreflightDone
 call "%LOG%" success "Pre-flight checks passed"
 exit /b 0
 

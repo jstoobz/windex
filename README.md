@@ -9,7 +9,7 @@ Installs and configures remote access, security hardening, and essential apps on
 | Step | Script | Description |
 |------|--------|-------------|
 | 1 | `10-install-tailscale.bat` | Tailscale VPN for remote access |
-| 2 | `20-install-tightvnc.bat` | TightVNC server (screen sharing) |
+| 2 | `20-install-tightvnc.bat` | TigerVNC server (screen sharing) |
 | 3 | `30-configure-firewall.bat` | Lock VNC to Tailscale subnet only |
 | 4 | `40-harden-system.bat` | Disable remote desktop, guest account, etc. |
 | 5 | `45-configure-power.bat` | Prevent sleep, manage Windows Update |
@@ -130,7 +130,7 @@ All flags: `--skip-tailscale`, `--skip-vnc`, `--skip-firewall`, `--skip-hardenin
 
 ### Password Restrictions
 
-Passwords **cannot contain** `!` or `%` — these are special characters in cmd.exe (`EnableDelayedExpansion` and variable expansion).
+Passwords **cannot contain** `! % & | ^ < > "` — these are special characters in cmd.exe that break variable expansion or command chaining.
 
 ## Project Structure
 
@@ -141,7 +141,6 @@ windex/
 │   ├── 10-install-tailscale.bat
 │   ├── ...                     # Steps 20-90
 │   ├── 99-rollback.bat         # Undo everything
-│   ├── helpers.ps1             # Reusable PowerShell snippets
 │   ├── setup-openssh-server.ps1
 │   └── lib/
 │       ├── config.bat          # All paths, URLs, and defaults

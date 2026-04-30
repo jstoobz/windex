@@ -386,16 +386,19 @@ goto :eof
 :CheckPass
 set /a "CHECKS_PASSED+=1"
 echo   [PASS] %~1
+call "%LOG%" debug "VERIFY PASS: %~1"
 goto :eof
 
 :CheckFail
 set /a "CHECKS_FAILED+=1"
 echo   [FAIL] %~1
+call "%LOG%" error "VERIFY FAIL: %~1"
 goto :eof
 
 :CheckWarn
 set /a "CHECKS_WARNED+=1"
 echo   [WARN] %~1
+call "%LOG%" warn "VERIFY WARN: %~1"
 goto :eof
 
 :GenerateSummary
@@ -408,6 +411,7 @@ echo   Passed:        %CHECKS_PASSED%
 echo   Failed:        %CHECKS_FAILED%
 echo   Warnings:      %CHECKS_WARNED%
 echo ============================================================
+call "%LOG%" info "Verification: %CHECKS_PASSED% passed, %CHECKS_FAILED% failed, %CHECKS_WARNED% warnings (of %TOTAL_CHECKS% total)"
 
 if defined TAILSCALE_IP (
     echo.

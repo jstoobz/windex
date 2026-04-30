@@ -297,13 +297,13 @@ exit /b %SETUP_RESULT%
 SETUPEOF2
 
 # Convert to CRLF
-sed 's/$/\r/' "$USB_PATH/SETUP.bat.tmp" > "$USB_PATH/SETUP.bat"
+sed 's/\r*$/\r/' "$USB_PATH/SETUP.bat.tmp" > "$USB_PATH/SETUP.bat"
 rm "$USB_PATH/SETUP.bat.tmp"
 
 # ── Generate README.txt ─────────────────────────────────────────────
 echo "Generating README.txt..."
 
-sed 's/$/\r/' > "$USB_PATH/README.txt" << 'READMEEOF'
+sed 's/\r*$/\r/' > "$USB_PATH/README.txt" << 'READMEEOF'
 PC Provisioning USB
 =====================
 
@@ -332,6 +332,11 @@ What gets installed:
 
 After setup, connect remotely via Tailscale + VNC or SSH tunnel.
 Check the output/credentials.txt file for VNC password.
+
+SECURITY NOTE: This USB contains plaintext credentials (SETUP.bat has
+the Tailscale auth key and account password, output/ has the VNC
+password). FAT32 has no file permissions. Keep the drive physically
+secure, and wipe or destroy it after provisioning is complete.
 READMEEOF
 
 # ── Verify bundle ───────────────────────────────────────────────────
