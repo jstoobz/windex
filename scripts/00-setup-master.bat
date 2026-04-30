@@ -13,7 +13,7 @@
 ::   --verbose           Enable verbose output
 ::   --force             Skip confirmation prompts
 ::   --skip-tailscale    Skip Tailscale installation
-::   --skip-vnc          Skip TightVNC installation
+::   --skip-vnc          Skip VNC Server installation
 ::   --skip-openssh      Skip OpenSSH Server installation
 ::   --skip-firewall     Skip firewall configuration
 ::   --skip-hardening    Skip system hardening
@@ -174,12 +174,12 @@ if "%SKIP_TAILSCALE%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 2: Install TightVNC
+:: STEP 2: Install VNC Server
 :: ============================================================================
 if "%SKIP_VNC%"=="1" (
-    call :StepSkipped "TightVNC Installation"
+    call :StepSkipped "VNC Server Installation"
 ) else (
-    call :RunStep "TightVNC Installation" "20-install-tightvnc.bat"
+    call :RunStep "VNC Server Installation" "20-install-tightvnc.bat"
     if errorlevel 1 (
         if "%CONTINUE_ON_ERROR%"=="0" goto :SetupFailed
     )
@@ -348,7 +348,7 @@ goto :eof
 echo  This script will:
 echo.
 if "%SKIP_TAILSCALE%"=="0" echo    1. Install Tailscale VPN
-if "%SKIP_VNC%"=="0"       echo    2. Install TightVNC Server
+if "%SKIP_VNC%"=="0"       echo    2. Install VNC Server
 if "%SKIP_OPENSSH%"=="0"   echo    3. Install OpenSSH Server
 if "%SKIP_FIREWALL%"=="0"  echo    4. Configure Windows Firewall
 if "%SKIP_HARDENING%"=="0" echo    5. Apply security hardening
@@ -499,7 +499,7 @@ echo   --force             Skip confirmation prompts
 echo   --continue-on-error Continue if a step fails
 echo.
 echo   --skip-tailscale    Skip Tailscale installation
-echo   --skip-vnc          Skip TightVNC installation
+echo   --skip-vnc          Skip VNC Server installation
 echo   --skip-openssh      Skip OpenSSH Server installation
 echo   --skip-firewall     Skip firewall configuration
 echo   --skip-hardening    Skip system hardening

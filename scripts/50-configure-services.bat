@@ -2,7 +2,7 @@
 ::==============================================================================
 :: 50-configure-services.bat - Service Configuration
 ::==============================================================================
-:: Configures Tailscale and TightVNC services for automatic startup
+:: Configures Tailscale and VNC services for automatic startup
 :: and recovery on failure.
 ::==============================================================================
 setlocal EnableDelayedExpansion
@@ -45,7 +45,7 @@ set "CONFIG_ERRORS=0"
 call :ConfigureTailscaleService
 if errorlevel 1 set /a "CONFIG_ERRORS+=1"
 
-call :ConfigureTightVNCService
+call :ConfigureVNCService
 if errorlevel 1 set /a "CONFIG_ERRORS+=1"
 
 call :ConfigureSSHService
@@ -93,29 +93,29 @@ if errorlevel 1 (
 call "%LOG%" success "Tailscale service configured"
 exit /b 0
 
-:ConfigureTightVNCService
-call "%LOG%" info "Configuring TightVNC service..."
+:ConfigureVNCService
+call "%LOG%" info "Configuring VNC service..."
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would configure TightVNC service for auto-start and recovery
+    echo [DRY-RUN] Would configure VNC service for auto-start and recovery
     exit /b 0
 )
 
-sc query %TIGHTVNC_SERVICE% >nul 2>&1
+sc query %VNC_SERVICE% >nul 2>&1
 if errorlevel 1 (
-    call "%LOG%" warn "TightVNC service not found"
+    call "%LOG%" warn "VNC service not found"
     exit /b 1
 )
 
-sc config %TIGHTVNC_SERVICE% start= auto >nul 2>&1
-sc failure %TIGHTVNC_SERVICE% reset= 86400 actions= restart/60000/restart/60000/restart/60000 >nul 2>&1
+sc config %VNC_SERVICE% start= auto >nul 2>&1
+sc failure %VNC_SERVICE% reset= 86400 actions= restart/60000/restart/60000/restart/60000 >nul 2>&1
 
-sc query %TIGHTVNC_SERVICE% | findstr "RUNNING" >nul 2>&1
+sc query %VNC_SERVICE% | findstr "RUNNING" >nul 2>&1
 if errorlevel 1 (
-    call "%LOG%" debug "Starting TightVNC service..."
-    net start %TIGHTVNC_SERVICE% >nul 2>&1
+    call "%LOG%" debug "Starting VNC service..."
+    net start %VNC_SERVICE% >nul 2>&1
 )
 
-call "%LOG%" success "TightVNC service configured"
+call "%LOG%" success "VNC service configured"
 exit /b 0
 
 :ConfigureSSHService
@@ -160,11 +160,11 @@ if %ERRORLEVEL% EQU 0 (
     set "VERIFY_PASSED=0"
 )
 
-sc qc %TIGHTVNC_SERVICE% 2>nul | findstr "AUTO_START" >nul 2>&1
+sc qc %VNC_SERVICE% 2>nul | findstr "AUTO_START" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    call "%LOG%" debug "TightVNC startup type: AUTO (OK)"
+    call "%LOG%" debug "VNC startup type: AUTO (OK)"
 ) else (
-    call "%LOG%" warn "TightVNC may not auto-start"
+    call "%LOG%" warn "VNC may not auto-start"
     set "VERIFY_PASSED=0"
 )
 

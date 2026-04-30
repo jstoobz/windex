@@ -56,7 +56,6 @@ set "CREDENTIALS_FILE=%OUTPUT_DIR%\credentials.txt"
 :: DOWNLOAD URLs
 :: ============================================================================
 if not defined TAILSCALE_URL set "TAILSCALE_URL=https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe"
-if not defined TIGHTVNC_URL set "TIGHTVNC_URL=https://www.tightvnc.com/download/2.8.85/tightvnc-2.8.85-gpl-setup-64bit.msi"
 
 :: ============================================================================
 :: TAILSCALE CONFIGURATION
@@ -67,12 +66,12 @@ set "TAILSCALE_EXE=%TAILSCALE_DIR%\tailscale.exe"
 if not defined TAILSCALE_SUBNET set "TAILSCALE_SUBNET=100.64.0.0/10"
 
 :: ============================================================================
-:: VNC CONFIGURATION
+:: VNC CONFIGURATION (TigerVNC — installed via winget)
 :: ============================================================================
 if not defined VNC_PORT set "VNC_PORT=5900"
 if not defined VNC_PASSWORD_LENGTH set "VNC_PASSWORD_LENGTH=16"
-if not defined TIGHTVNC_DIR set "TIGHTVNC_DIR=C:\Program Files\TightVNC"
-if not defined TIGHTVNC_SERVICE set "TIGHTVNC_SERVICE=tvnserver"
+if not defined VNC_DIR set "VNC_DIR=C:\Program Files\TigerVNC"
+if not defined VNC_SERVICE set "VNC_SERVICE=winvnc4"
 
 :: ============================================================================
 :: FIREWALL CONFIGURATION

@@ -30,9 +30,7 @@ result() {
 }
 
 ssh_cmd() {
-    ssh -F /dev/null -i "$SSH_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=no \
-        -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
-        -o LogLevel=ERROR "$SSH_USER@localhost" "$@"
+    ssh "${SSH_COMMON[@]}" -p "$SSH_PORT" "$SSH_USER@localhost" "$@"
 }
 
 cleanup() {
@@ -136,8 +134,7 @@ fi
 test_content="ssh-test-$(date +%s)"
 test_file=$(mktemp)
 echo "$test_content" > "$test_file"
-if scp -F /dev/null -i "$SSH_KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no \
-    -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+if scp "${SSH_COMMON[@]}" -P "$SSH_PORT" \
     "$test_file" "$SSH_USER@localhost:C:/utm-test-file.txt" 2> /dev/null; then
     result pass "SCP push"
 else
@@ -146,8 +143,7 @@ fi
 
 # Test 5: file transfer via scp (pull + verify)
 pull_file=$(mktemp)
-if scp -F /dev/null -i "$SSH_KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no \
-    -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+if scp "${SSH_COMMON[@]}" -P "$SSH_PORT" \
     "$SSH_USER@localhost:C:/utm-test-file.txt" "$pull_file" 2> /dev/null; then
     pulled=$(cat "$pull_file")
     if [[ "$pulled" == *"$test_content"* ]]; then

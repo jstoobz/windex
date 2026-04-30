@@ -85,8 +85,8 @@ if [[ -z "$AUTHKEY" ]]; then
     echo "ERROR: Tailscale auth key required (set in .env or pass --authkey=)"
     exit 1
 fi
-if [[ "$AUTHKEY" != tskey-auth-* ]]; then
-    echo "ERROR: Auth key must start with tskey-auth-"
+if [[ ! "$AUTHKEY" =~ ^tskey-auth-[A-Za-z0-9_-]{20,}$ ]]; then
+    echo "ERROR: Auth key must match format tskey-auth-<20+ alphanumeric chars>"
     exit 1
 fi
 
@@ -321,7 +321,7 @@ Instructions:
 What gets installed:
 
   - Tailscale VPN (remote access)
-  - TightVNC (screen sharing)
+  - TigerVNC (screen sharing)
   - OpenSSH Server (SSH tunneling)
   - Google Chrome (with ad blocker)
   - iTunes

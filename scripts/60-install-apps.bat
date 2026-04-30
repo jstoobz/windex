@@ -186,6 +186,13 @@ if exist "%MALWAREBYTES_EXE%" (
     exit /b 0
 )
 
+:: Skip on ARM64 — winget package unavailable (exit code 200), direct installer untested
+powershell -NoProfile -Command "if ((Get-CimInstance Win32_Processor).Architecture -eq 12) { exit 1 }" >nul 2>&1
+if errorlevel 1 (
+    call "%LOG%" warn "Malwarebytes ARM64 not available via winget — install manually from malwarebytes.com"
+    exit /b 0
+)
+
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would execute: winget install --id Malwarebytes.Malwarebytes --exact --silent --accept-package-agreements --accept-source-agreements
     exit /b 0

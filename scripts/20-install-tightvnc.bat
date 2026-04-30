@@ -1,8 +1,8 @@
 @echo off
 ::==============================================================================
-:: 20-install-tightvnc.bat - TightVNC Installation Script
+:: 20-install-tightvnc.bat - VNC Server Installation (TigerVNC)
 ::==============================================================================
-:: Downloads and installs TightVNC Server with auto-generated secure password.
+:: Installs TigerVNC Server via winget with auto-generated secure password.
 :: Supports dry-run mode and idempotent execution.
 ::==============================================================================
 setlocal EnableDelayedExpansion
@@ -30,7 +30,7 @@ goto :ParseArgs
 :: ============================================================================
 :: MAIN EXECUTION
 :: ============================================================================
-call "%LOG%" section "TightVNC Installation"
+call "%LOG%" section "VNC Server Installation"
 
 :: Check for admin privileges
 call "%ADMIN%"
@@ -40,16 +40,16 @@ if errorlevel 1 (
 )
 
 :: Check if already installed (idempotency)
-call :CheckTightVNCInstalled
+call :CheckVNCInstalled
 if !ERRORLEVEL! EQU 0 (
-    call "%LOG%" info "TightVNC is already installed"
-    call :VerifyTightVNCService
+    call "%LOG%" info "VNC server is already installed"
+    call :VerifyVNCService
     if !ERRORLEVEL! EQU 0 (
-        call "%LOG%" success "TightVNC is installed and running"
+        call "%LOG%" success "VNC server is installed and running"
         exit /b %EXIT_SUCCESS%
     ) else (
-        call "%LOG%" warn "TightVNC installed but service not running"
-        call :StartTightVNCService
+        call "%LOG%" warn "VNC installed but service not running"
+        call :StartVNCService
         exit /b !ERRORLEVEL!
     )
 )
@@ -62,12 +62,12 @@ if errorlevel 1 exit /b %EXIT_PREREQ_FAILED%
 call :GeneratePassword
 if errorlevel 1 exit /b %EXIT_EXECUTION_FAILED%
 
-:: Download TightVNC installer
-call :DownloadTightVNC
+:: Install VNC server
+call :InstallVNC
 if errorlevel 1 exit /b %EXIT_EXECUTION_FAILED%
 
-:: Install TightVNC
-call :InstallTightVNC
+:: Configure VNC password and settings
+call :ConfigureVNC
 if errorlevel 1 exit /b %EXIT_EXECUTION_FAILED%
 
 :: Save credentials
@@ -80,7 +80,7 @@ if errorlevel 1 exit /b %EXIT_VERIFICATION_FAILED%
 :: Mark as installed
 call :MarkInstalled
 
-call "%LOG%" success "TightVNC installation completed successfully"
+call "%LOG%" success "VNC server installation completed successfully"
 call "%LOG%" info "VNC credentials saved to: %CREDENTIALS_FILE%"
 exit /b %EXIT_SUCCESS%
 
@@ -88,45 +88,45 @@ exit /b %EXIT_SUCCESS%
 :: FUNCTIONS
 :: ============================================================================
 
-:CheckTightVNCInstalled
-call "%LOG%" debug "Checking if TightVNC is installed..."
-if exist "%TIGHTVNC_DIR%\tvnserver.exe" (
-    call "%LOG%" debug "TightVNC executable found"
+:CheckVNCInstalled
+call "%LOG%" debug "Checking if VNC server is installed..."
+if exist "%VNC_DIR%\winvnc4.exe" (
+    call "%LOG%" debug "TigerVNC executable found"
     exit /b 0
 )
-sc query %TIGHTVNC_SERVICE% >nul 2>&1
+sc query %VNC_SERVICE% >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    call "%LOG%" debug "TightVNC service found"
+    call "%LOG%" debug "VNC service found"
     exit /b 0
 )
 exit /b 1
 
-:VerifyTightVNCService
-call "%LOG%" debug "Checking TightVNC service status..."
-sc query %TIGHTVNC_SERVICE% | findstr "RUNNING" >nul 2>&1
+:VerifyVNCService
+call "%LOG%" debug "Checking VNC service status..."
+sc query %VNC_SERVICE% | findstr "RUNNING" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    call "%LOG%" debug "TightVNC service is running"
+    call "%LOG%" debug "VNC service is running"
     exit /b 0
 )
 exit /b 1
 
-:StartTightVNCService
-call "%LOG%" info "Starting TightVNC service..."
+:StartVNCService
+call "%LOG%" info "Starting VNC service..."
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would start TightVNC service
+    echo [DRY-RUN] Would start VNC service
     exit /b 0
 )
-net start %TIGHTVNC_SERVICE% >nul 2>&1
+net start %VNC_SERVICE% >nul 2>&1
 if errorlevel 1 (
-    call "%LOG%" error "Failed to start TightVNC service"
+    call "%LOG%" error "Failed to start VNC service"
     exit /b 1
 )
-call "%LOG%" success "TightVNC service started"
+call "%LOG%" success "VNC service started"
 exit /b 0
 
 :PreflightChecks
 call "%LOG%" info "Running pre-flight checks..."
-ping -n 1 -w 3000 8.8.8.8 >nul 2>&1
+ping -n 1 -w 3000 %CONNECTIVITY_CHECK_IP% >nul 2>&1
 if errorlevel 1 (
     call "%LOG%" error "No internet connectivity"
     exit /b 1
@@ -156,56 +156,24 @@ if not defined VNC_PASSWORD (
 call "%LOG%" debug "Password generated successfully"
 exit /b 0
 
-:DownloadTightVNC
-set "INSTALLER_PATH=%TEMP%\tightvnc-setup.msi"
-call "%LOG%" info "Downloading TightVNC installer..."
-
-if exist "%INSTALLER_PATH%" del "%INSTALLER_PATH%" 2>nul
+:InstallVNC
+call "%LOG%" info "Installing TigerVNC server..."
 
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would download: %TIGHTVNC_URL%
+    echo [DRY-RUN] Would install TigerVNC via: winget install TigerVNC.TigerVNC
     exit /b 0
 )
 
-powershell -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri '%TIGHTVNC_URL%' -OutFile '%INSTALLER_PATH%' -UseBasicParsing"
-if errorlevel 1 (
-    call "%LOG%" error "Failed to download TightVNC installer"
-    exit /b 1
-)
+:: Install via winget
+call "%LOG%" debug "Running winget install for TigerVNC..."
+winget install TigerVNC.TigerVNC --silent --accept-package-agreements --accept-source-agreements >nul 2>&1
 
-if not exist "%INSTALLER_PATH%" (
-    call "%LOG%" error "Installer file not found after download"
-    exit /b 1
-)
-call "%LOG%" success "Download complete"
-exit /b 0
-
-:InstallTightVNC
-set "INSTALLER_PATH=%TEMP%\tightvnc-setup.msi"
-call "%LOG%" info "Installing TightVNC..."
-
-if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would install TightVNC with generated password
-    exit /b 0
-)
-
-:: Build MSI command
-set "MSI_ARGS=/quiet /norestart ADDLOCAL=Server"
-set "MSI_ARGS=%MSI_ARGS% SET_USEVNCAUTHENTICATION=1 VALUE_OF_USEVNCAUTHENTICATION=1"
-set "MSI_ARGS=%MSI_ARGS% SET_PASSWORD=1 VALUE_OF_PASSWORD=%VNC_PASSWORD%"
-set "MSI_ARGS=%MSI_ARGS% SET_USECONTROLAUTHENTICATION=1 VALUE_OF_CONTROLPASSWORD=%VNC_PASSWORD%"
-set "MSI_ARGS=%MSI_ARGS% SET_ALLOWLOOPBACK=1 VALUE_OF_ALLOWLOOPBACK=1"
-
-call "%LOG%" debug "Running MSI installer..."
-msiexec /i "%INSTALLER_PATH%" %MSI_ARGS%
-set "MSI_RESULT=%ERRORLEVEL%"
-
-if %MSI_RESULT% EQU 0 (
-    call "%LOG%" success "TightVNC installed successfully"
-) else if %MSI_RESULT% EQU 3010 (
-    call "%LOG%" success "TightVNC installed (reboot may be required)"
+:: Verify executable exists
+if exist "%VNC_DIR%\winvnc4.exe" (
+    call "%LOG%" success "TigerVNC installed via winget"
 ) else (
-    call "%LOG%" error "TightVNC installation failed (code: %MSI_RESULT%)"
+    call "%LOG%" error "TigerVNC installation failed"
+    call "%LOG%" info "Try manually: winget install TigerVNC.TigerVNC"
     exit /b 1
 )
 
@@ -213,20 +181,66 @@ if %MSI_RESULT% EQU 0 (
 call "%LOG%" debug "Waiting for service registration..."
 set "WAIT_COUNT=0"
 :WaitForServiceReg
-sc query %TIGHTVNC_SERVICE% >nul 2>&1
+sc query %VNC_SERVICE% >nul 2>&1
 if %ERRORLEVEL% EQU 0 goto :ServiceRegistered
 ping -n 3 127.0.0.1 >nul
 set /a "WAIT_COUNT+=1"
 if %WAIT_COUNT% GTR 30 (
-    call "%LOG%" error "Timeout waiting for TightVNC service registration"
-    exit /b 1
+    call "%LOG%" debug "Service not auto-registered, trying manual registration..."
+    "%VNC_DIR%\winvnc4.exe" -register
+    ping -n 5 127.0.0.1 >nul
+    sc query %VNC_SERVICE% >nul 2>&1
+    if errorlevel 1 (
+        call "%LOG%" error "Timeout waiting for VNC service registration"
+        exit /b 1
+    )
 )
 goto :WaitForServiceReg
 
 :ServiceRegistered
 call "%LOG%" debug "Service registered successfully"
-call :StartTightVNCService
-del "%INSTALLER_PATH%" 2>nul
+exit /b 0
+
+:ConfigureVNC
+call "%LOG%" info "Configuring VNC server..."
+
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would configure VNC password and settings
+    exit /b 0
+)
+
+:: Set VNC password via PowerShell (DES encryption per RFB protocol)
+:: VNC auth uses a fixed DES key with bit-reversed bytes
+call "%LOG%" debug "Setting VNC password..."
+powershell -NoProfile -Command ^
+    "$pw = $env:VNC_PASSWORD; " ^
+    "$k = [byte[]](0xE8,0x4A,0xD6,0x60,0xC4,0x72,0x1A,0xE0); " ^
+    "$pb = [byte[]]::new(8); " ^
+    "$r = [Text.Encoding]::ASCII.GetBytes($pw); " ^
+    "[Array]::Copy($r,$pb,[Math]::Min($r.Length,8)); " ^
+    "$d = [Security.Cryptography.DES]::Create(); " ^
+    "$d.Mode = 'ECB'; $d.Padding = 'None'; $d.Key = $k; " ^
+    "$e = $d.CreateEncryptor().TransformFinalBlock($pb,0,8); " ^
+    "$hex = -join ($e | ForEach-Object { '{0:x2}' -f $_ }); " ^
+    "reg add 'HKLM\SOFTWARE\TigerVNC\Server' /v Password /t REG_BINARY /d $hex /f | Out-Null; " ^
+    "reg add 'HKLM\SOFTWARE\TigerVNC\Server' /v ControlPassword /t REG_BINARY /d $hex /f | Out-Null"
+
+if errorlevel 1 (
+    call "%LOG%" error "Failed to set VNC password"
+    exit /b 1
+)
+
+:: Configure additional server settings
+reg add "HKLM\SOFTWARE\TigerVNC\Server" /v SecurityTypes /t REG_SZ /d "VncAuth" /f >nul 2>&1
+reg add "HKLM\SOFTWARE\TigerVNC\Server" /v PortNumber /t REG_DWORD /d %VNC_PORT% /f >nul 2>&1
+reg add "HKLM\SOFTWARE\TigerVNC\Server" /v AllowLoopback /t REG_DWORD /d 1 /f >nul 2>&1
+
+:: Restart service to pick up new configuration
+net stop %VNC_SERVICE% >nul 2>&1
+call :StartVNCService
+if errorlevel 1 exit /b 1
+
+call "%LOG%" success "VNC server configured"
 exit /b 0
 
 :SaveCredentials
@@ -264,29 +278,32 @@ if exist "%TAILSCALE_EXE%" (
     echo ============================================================
 ) > "%CREDENTIALS_FILE%"
 
+:: Restrict credentials file to Administrators and SYSTEM only
+icacls "%CREDENTIALS_FILE%" /inheritance:r /grant:r Administrators:F SYSTEM:F >nul 2>&1
+
 call "%LOG%" debug "Credentials saved to: %CREDENTIALS_FILE%"
 exit /b 0
 
 :VerifyInstallation
-call "%LOG%" info "Verifying TightVNC installation..."
+call "%LOG%" info "Verifying VNC installation..."
 
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would verify TightVNC installation
+    echo [DRY-RUN] Would verify VNC installation
     exit /b 0
 )
 
-if not exist "%TIGHTVNC_DIR%\tvnserver.exe" (
-    call "%LOG%" error "TightVNC executable not found"
+if not exist "%VNC_DIR%\winvnc4.exe" (
+    call "%LOG%" error "VNC executable not found"
     exit /b 1
 )
 call "%LOG%" debug "Executable exists: OK"
 
-sc query %TIGHTVNC_SERVICE% | findstr "RUNNING" >nul 2>&1
+sc query %VNC_SERVICE% | findstr "RUNNING" >nul 2>&1
 if errorlevel 1 (
-    call "%LOG%" warn "TightVNC service is not running"
-    call :StartTightVNCService
+    call "%LOG%" warn "VNC service is not running"
+    call :StartVNCService
     if errorlevel 1 (
-        call "%LOG%" error "Could not start TightVNC service"
+        call "%LOG%" error "Could not start VNC service"
         exit /b 1
     )
 )
@@ -307,17 +324,18 @@ goto :WaitForPort
 
 :PortListening
 call "%LOG%" debug "Port %VNC_PORT% listening: OK"
-call "%LOG%" success "TightVNC verification passed"
+call "%LOG%" success "VNC verification passed"
 exit /b 0
 
 :MarkInstalled
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would mark TightVNC as installed in registry
+    echo [DRY-RUN] Would mark VNC as installed in registry
     exit /b 0
 )
-reg add "%SETUP_REG_KEY%" /v "TightVNCInstalled" /t REG_SZ /d "1" /f >nul 2>&1
-reg add "%SETUP_REG_KEY%" /v "TightVNCInstallDate" /t REG_SZ /d "%DATE% %TIME%" /f >nul 2>&1
-reg add "%SETUP_REG_KEY%" /v "TightVNCPort" /t REG_SZ /d "%VNC_PORT%" /f >nul 2>&1
+reg add "%SETUP_REG_KEY%" /v "VNCInstalled" /t REG_SZ /d "1" /f >nul 2>&1
+reg add "%SETUP_REG_KEY%" /v "VNCInstallDate" /t REG_SZ /d "%DATE% %TIME%" /f >nul 2>&1
+reg add "%SETUP_REG_KEY%" /v "VNCPort" /t REG_SZ /d "%VNC_PORT%" /f >nul 2>&1
+reg add "%SETUP_REG_KEY%" /v "VNCProvider" /t REG_SZ /d "TigerVNC" /f >nul 2>&1
 goto :eof
 
 :: ============================================================================

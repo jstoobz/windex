@@ -3,7 +3,8 @@
 :: 70-harden-chrome.bat - Chrome Browser Hardening
 ::==============================================================================
 :: Force-installs essential extensions and applies safe browsing policies
-:: via Chrome enterprise registry keys.
+:: via Chrome enterprise registry keys (HKLM\SOFTWARE\Policies\Google\Chrome).
+:: NOTE: On domain-joined machines, Group Policy overrides these local policies.
 ::==============================================================================
 setlocal EnableDelayedExpansion
 

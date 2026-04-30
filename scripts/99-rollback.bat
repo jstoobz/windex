@@ -77,7 +77,7 @@ if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
 call :RemoveFirewallRules
 if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
 
-call :UninstallTightVNC
+call :UninstallVNC
 if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
 
 call :UninstallOpenSSH
@@ -126,7 +126,7 @@ echo    - Power settings (revert to Windows defaults)
 echo    - Installed apps (Chrome, iTunes, Malwarebytes)
 echo    - Desktop shortcuts
 echo    - Tailscale VPN (and disconnect from network)
-echo    - TightVNC Server (remote access will be disabled)
+echo    - VNC Server (remote access will be disabled)
 echo    - OpenSSH Server
 echo    - Firewall rules for VNC and SSH
 echo    - Setup configuration and artifacts
@@ -336,42 +336,51 @@ if %ERRORLEVEL% EQU 0 (
 
 exit /b 0
 
-:UninstallTightVNC
-call "%LOG%" info "Uninstalling TightVNC..."
+:UninstallVNC
+call "%LOG%" info "Uninstalling VNC server..."
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would uninstall TightVNC
+    echo [DRY-RUN] Would uninstall VNC server
     exit /b 0
 )
 
-sc query %TIGHTVNC_SERVICE% >nul 2>&1
+sc query %VNC_SERVICE% >nul 2>&1
 if errorlevel 1 (
-    call "%LOG%" debug "TightVNC not installed, skipping"
+    call "%LOG%" debug "VNC server not installed, skipping"
     exit /b 0
 )
 
 :: Stop the service first
-call "%LOG%" debug "Stopping TightVNC service..."
-net stop %TIGHTVNC_SERVICE% >nul 2>&1
+call "%LOG%" debug "Stopping VNC service..."
+net stop %VNC_SERVICE% >nul 2>&1
 
-:: Find uninstall command from registry
-for /f "tokens=2*" %%A in ('reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" /s /f "TightVNC" 2^>nul ^| findstr /i "UninstallString"') do (
+:: Try winget uninstall first (TigerVNC)
+winget uninstall TigerVNC.TigerVNC --silent >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    ping -n 6 127.0.0.1 >nul
+    call "%LOG%" success "VNC server uninstalled via winget"
+    exit /b 0
+)
+
+:: Fall back to registry-based uninstall (handles TightVNC or other providers)
+set "UNINSTALL_CMD="
+for /f "tokens=2*" %%A in ('reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" /s /f "VNC" 2^>nul ^| findstr /i "UninstallString"') do (
     set "UNINSTALL_CMD=%%B"
 )
 
 if defined UNINSTALL_CMD (
     call "%LOG%" debug "Running uninstaller..."
-    echo %UNINSTALL_CMD% | findstr /i "msiexec" >nul 2>&1
-    if %ERRORLEVEL% EQU 0 (
-        for /f "tokens=2 delims={}" %%G in ("%UNINSTALL_CMD%") do (
+    echo !UNINSTALL_CMD! | findstr /i "msiexec" >nul 2>&1
+    if !ERRORLEVEL! EQU 0 (
+        for /f "tokens=2 delims={}" %%G in ("!UNINSTALL_CMD!") do (
             msiexec /x {%%G} /quiet /norestart
         )
     ) else (
-        %UNINSTALL_CMD% /S
+        !UNINSTALL_CMD! /S
     )
     ping -n 6 127.0.0.1 >nul
-    call "%LOG%" success "TightVNC uninstalled"
+    call "%LOG%" success "VNC server uninstalled"
 ) else (
-    call "%LOG%" warn "Could not find TightVNC uninstaller"
+    call "%LOG%" warn "Could not find VNC uninstaller"
     exit /b 1
 )
 

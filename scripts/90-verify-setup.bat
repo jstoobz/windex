@@ -38,7 +38,7 @@ set "TOTAL_CHECKS=0"
 
 :: Run all verification checks
 call :VerifyTailscale
-call :VerifyTightVNC
+call :VerifyVNC
 call :VerifyFirewall
 call :VerifyServices
 call :VerifyOpenSSH
@@ -114,26 +114,26 @@ if defined TAILSCALE_IP (
 :VerifyTailscaleDone
 goto :eof
 
-:VerifyTightVNC
+:VerifyVNC
 echo.
-echo Verifying TightVNC...
+echo Verifying VNC server...
 
-:: Check 1: TightVNC executable exists
+:: Check 1: VNC server executable exists
 set /a "TOTAL_CHECKS+=1"
-if exist "%TIGHTVNC_DIR%\tvnserver.exe" (
-    call :CheckPass "TightVNC executable exists"
+if exist "%VNC_DIR%\winvnc4.exe" (
+    call :CheckPass "VNC server executable exists"
 ) else (
-    call :CheckFail "TightVNC executable not found"
-    goto :VerifyTightVNCDone
+    call :CheckFail "VNC server executable not found"
+    goto :VerifyVNCDone
 )
 
-:: Check 2: TightVNC service is running
+:: Check 2: VNC server service is running
 set /a "TOTAL_CHECKS+=1"
-sc query %TIGHTVNC_SERVICE% | findstr "RUNNING" >nul 2>&1
+sc query %VNC_SERVICE% | findstr "RUNNING" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    call :CheckPass "TightVNC service is running"
+    call :CheckPass "VNC server service is running"
 ) else (
-    call :CheckFail "TightVNC service is not running"
+    call :CheckFail "VNC server service is not running"
 )
 
 :: Check 3: VNC port is listening
@@ -153,7 +153,7 @@ if exist "%CREDENTIALS_FILE%" (
     call :CheckWarn "Credentials file not found"
 )
 
-:VerifyTightVNCDone
+:VerifyVNCDone
 goto :eof
 
 :VerifyFirewall
@@ -202,13 +202,13 @@ if %ERRORLEVEL% EQU 0 (
     call :CheckWarn "Tailscale may not auto-start"
 )
 
-:: Check 2: TightVNC auto-start
+:: Check 2: VNC server auto-start
 set /a "TOTAL_CHECKS+=1"
-sc qc %TIGHTVNC_SERVICE% 2>nul | findstr "AUTO_START" >nul 2>&1
+sc qc %VNC_SERVICE% 2>nul | findstr "AUTO_START" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    call :CheckPass "TightVNC set to auto-start"
+    call :CheckPass "VNC server set to auto-start"
 ) else (
-    call :CheckWarn "TightVNC may not auto-start"
+    call :CheckWarn "VNC server may not auto-start"
 )
 
 goto :eof

@@ -2,7 +2,7 @@
 <#
   bootstrap-remote.ps1 — One-shot script to establish remote access.
 
-  Installs Tailscale + TightVNC, connects to tailnet, opens firewall.
+  Installs Tailscale + TigerVNC, connects to tailnet, opens firewall.
   Designed to be run once by someone with physical access to the machine.
 
   Usage:
@@ -22,9 +22,8 @@ $ErrorActionPreference = 'Stop'
 $TailscaleUrl      = if ($env:TAILSCALE_URL)      { $env:TAILSCALE_URL }      else { 'https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe' }
 $TailscaleDir      = if ($env:TAILSCALE_DIR)       { $env:TAILSCALE_DIR }      else { 'C:\Program Files\Tailscale' }
 $TailscaleExe      = "$TailscaleDir\tailscale.exe"
-$TightVncUrl       = if ($env:TIGHTVNC_URL)        { $env:TIGHTVNC_URL }       else { 'https://www.tightvnc.com/download/2.8.85/tightvnc-2.8.85-gpl-setup-64bit.msi' }
-$TightVncDir       = if ($env:TIGHTVNC_DIR)        { $env:TIGHTVNC_DIR }       else { 'C:\Program Files\TightVNC' }
-$TightVncService   = if ($env:TIGHTVNC_SERVICE)    { $env:TIGHTVNC_SERVICE }   else { 'tvnserver' }
+$VncDir            = if ($env:VNC_DIR)              { $env:VNC_DIR }            else { 'C:\Program Files\TigerVNC' }
+$VncService        = if ($env:VNC_SERVICE)          { $env:VNC_SERVICE }        else { 'winvnc4' }
 $VncPort           = if ($env:VNC_PORT)             { [int]$env:VNC_PORT }      else { 5900 }
 $TailscaleSubnet   = if ($env:TAILSCALE_SUBNET)    { $env:TAILSCALE_SUBNET }   else { '100.64.0.0/10' }
 $VncPasswordLength = if ($env:VNC_PASSWORD_LENGTH)  { [int]$env:VNC_PASSWORD_LENGTH } else { 16 }
@@ -115,43 +114,46 @@ if (-not $tsIp) {
     Write-Ok "Connected: $tsIp"
 }
 
-# ── 2. TightVNC ──────────────────────────────────────────────────────
-Write-Step "Installing TightVNC..."
+# ── 2. VNC Server (TigerVNC) ─────────────────────────────────────────
+Write-Step "Installing TigerVNC..."
 
-$vncInstalled = Test-Path "$TightVncDir\tvnserver.exe"
+$vncInstalled = Test-Path "$VncDir\winvnc4.exe"
 if ($vncInstalled) {
-    Write-Ok "TightVNC already installed"
+    Write-Ok "TigerVNC already installed"
 } else {
-    $msi = "$env:TEMP\tightvnc-setup.msi"
-    $ProgressPreference = 'SilentlyContinue'
-    Invoke-WebRequest -Uri $TightVncUrl -OutFile $msi -UseBasicParsing
-    Write-Ok "Downloaded installer"
-
-    $msiArgs = @(
-        '/i', $msi,
-        '/quiet', '/norestart',
-        'ADDLOCAL=Server',
-        'SET_USEVNCAUTHENTICATION=1', 'VALUE_OF_USEVNCAUTHENTICATION=1',
-        "SET_PASSWORD=1", "VALUE_OF_PASSWORD=$VncPassword",
-        "SET_USECONTROLAUTHENTICATION=1", "VALUE_OF_CONTROLPASSWORD=$VncPassword",
-        'SET_ALLOWLOOPBACK=1', 'VALUE_OF_ALLOWLOOPBACK=1'
-    )
-    Start-Process msiexec -ArgumentList $msiArgs -Wait
-    Wait-ForCondition {
-        (Get-Service $TightVncService -ErrorAction SilentlyContinue) -ne $null
-    } "TightVNC service registration"
-    Remove-Item $msi -ErrorAction SilentlyContinue
-    Write-Ok "TightVNC installed"
+    winget install TigerVNC.TigerVNC --silent --accept-package-agreements --accept-source-agreements | Out-Null
+    Wait-ForCondition { Test-Path "$VncDir\winvnc4.exe" } "TigerVNC executable"
+    Write-Ok "TigerVNC installed"
 }
 
-# Ensure service is running
-$vncSvc = Get-Service $TightVncService -ErrorAction SilentlyContinue
-if ($vncSvc -and $vncSvc.Status -ne 'Running') {
-    Start-Service $TightVncService
+# Configure VNC password (DES encryption per RFB protocol)
+$pwBytes = [byte[]]::new(8)
+$rawPw = [Text.Encoding]::ASCII.GetBytes($VncPassword)
+[Array]::Copy($rawPw, $pwBytes, [Math]::Min($rawPw.Length, 8))
+$desKey = [byte[]](0xE8,0x4A,0xD6,0x60,0xC4,0x72,0x1A,0xE0)
+$des = [Security.Cryptography.DES]::Create()
+$des.Mode = 'ECB'; $des.Padding = 'None'; $des.Key = $desKey
+$encrypted = $des.CreateEncryptor().TransformFinalBlock($pwBytes, 0, 8)
+$hexPw = -join ($encrypted | ForEach-Object { '{0:x2}' -f $_ })
+
+reg add 'HKLM\SOFTWARE\TigerVNC\Server' /v Password /t REG_BINARY /d $hexPw /f | Out-Null
+reg add 'HKLM\SOFTWARE\TigerVNC\Server' /v ControlPassword /t REG_BINARY /d $hexPw /f | Out-Null
+reg add 'HKLM\SOFTWARE\TigerVNC\Server' /v SecurityTypes /t REG_SZ /d 'VncAuth' /f | Out-Null
+reg add 'HKLM\SOFTWARE\TigerVNC\Server' /v PortNumber /t REG_DWORD /d $VncPort /f | Out-Null
+reg add 'HKLM\SOFTWARE\TigerVNC\Server' /v AllowLoopback /t REG_DWORD /d 1 /f | Out-Null
+
+# Ensure service is registered and running
+if (-not (Get-Service $VncService -ErrorAction SilentlyContinue)) {
+    & "$VncDir\winvnc4.exe" -register
 }
 Wait-ForCondition {
-    (Get-Service $TightVncService).Status -eq 'Running'
-} "TightVNC service running"
+    (Get-Service $VncService -ErrorAction SilentlyContinue) -ne $null
+} "VNC service registration"
+
+Restart-Service $VncService -ErrorAction SilentlyContinue
+Wait-ForCondition {
+    (Get-Service $VncService).Status -eq 'Running'
+} "VNC service running"
 Write-Ok "VNC server running on port $VncPort"
 
 # ── 3. Firewall ──────────────────────────────────────────────────────
