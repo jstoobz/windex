@@ -123,7 +123,7 @@ echo    - Standard user account
 echo    - Chrome policies, forced extensions
 echo    - DNS filtering (revert to automatic)
 echo    - Power settings (revert to Windows defaults)
-echo    - Installed apps (Chrome, iTunes, Malwarebytes)
+echo    - Installed apps (Chrome, iTunes, Malwarebytes, Rufus)
 echo    - Desktop shortcuts
 echo    - Tailscale VPN (and disconnect from network)
 echo    - VNC Server (remote access will be disabled)
@@ -256,15 +256,16 @@ exit /b 0
 call "%LOG%" info "Uninstalling provisioned applications..."
 
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would uninstall: Google Chrome, Apple iTunes, Malwarebytes
+    echo [DRY-RUN] Would uninstall: Google Chrome, Apple iTunes, Malwarebytes, Rufus
     echo [DRY-RUN]   winget uninstall --id Google.Chrome --silent
     echo [DRY-RUN]   winget uninstall --id Apple.iTunes --silent
     echo [DRY-RUN]   winget uninstall --id Malwarebytes.Malwarebytes --silent
+    echo [DRY-RUN]   winget uninstall --id Rufus.Rufus --silent
     exit /b 0
 )
 
 :: Uninstall each app via winget (gracefully skip if not installed)
-for %%P in (Google.Chrome Apple.iTunes Malwarebytes.Malwarebytes) do (
+for %%P in (Google.Chrome Apple.iTunes Malwarebytes.Malwarebytes Rufus.Rufus) do (
     call "%LOG%" debug "Uninstalling %%P..."
     winget uninstall --id %%P --silent >nul 2>&1
     if !ERRORLEVEL! EQU 0 (
@@ -294,6 +295,12 @@ if exist "%PUBLIC_DESKTOP%\Google Chrome.lnk" (
 if exist "%PUBLIC_DESKTOP%\iTunes.lnk" (
     del "%PUBLIC_DESKTOP%\iTunes.lnk" 2>nul
     call "%LOG%" debug "Removed iTunes shortcut"
+)
+
+:: Rufus shortcut lives in the All-Users Start Menu, not the Public Desktop
+if exist "%RUFUS_SHORTCUT%" (
+    del "%RUFUS_SHORTCUT%" 2>nul
+    call "%LOG%" debug "Removed Rufus Start Menu shortcut"
 )
 
 call "%LOG%" success "Desktop shortcuts removed"

@@ -98,6 +98,11 @@ set "ITUNES_EXE=C:\Program Files\iTunes\iTunes.exe"
 if not defined MALWAREBYTES_URL set "MALWAREBYTES_URL=https://downloads.malwarebytes.com/file/mb-windows"
 set "MALWAREBYTES_EXE=C:\Program Files\Malwarebytes\Anti-Malware\mbam.exe"
 
+:: Rufus - USB format / bootable-media tool (machine scope so it survives user creation)
+if not defined RUFUS_WINGET_ID set "RUFUS_WINGET_ID=Rufus.Rufus"
+set "RUFUS_EXE=%ProgramFiles%\WinGet\Links\rufus.exe"
+set "RUFUS_SHORTCUT=%ProgramData%\Microsoft\Windows\Start Menu\Programs\Rufus.lnk"
+
 :: CHROME EXTENSIONS (Chrome Web Store IDs)
 set "EXT_UBLOCK=cjpalhdlnbpafiamejdnhcphjbkeiagm"
 

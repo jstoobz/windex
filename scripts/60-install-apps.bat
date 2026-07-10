@@ -2,7 +2,7 @@
 ::==============================================================================
 :: 60-install-apps.bat - Essential Application Installation
 ::==============================================================================
-:: Installs Chrome, iTunes, and Malwarebytes via winget.
+:: Installs Chrome, iTunes, Malwarebytes, and Rufus via winget.
 :: Supports dry-run mode and idempotent execution.
 ::==============================================================================
 setlocal EnableDelayedExpansion
@@ -66,6 +66,9 @@ call :InstallITunes
 if errorlevel 1 set /a "APP_ERRORS+=1"
 
 call :InstallMalwarebytes
+if errorlevel 1 set /a "APP_ERRORS+=1"
+
+call :InstallRufus
 if errorlevel 1 set /a "APP_ERRORS+=1"
 
 :: Mark as installed
@@ -228,6 +231,47 @@ if exist "%MALWAREBYTES_EXE%" (
 
 call "%LOG%" warn "Malwarebytes not found after install — install manually from malwarebytes.com"
 exit /b 0
+
+:: ============================================================================
+:: RUFUS (USB format / bootable-media tool)
+:: ============================================================================
+
+:InstallRufus
+call "%LOG%" info "Installing Rufus (USB format tool)..."
+
+if exist "%RUFUS_EXE%" (
+    call "%LOG%" info "Rufus is already installed"
+    call "%LOG%" success "Rufus: OK"
+    exit /b 0
+)
+
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would execute: winget install --id %RUFUS_WINGET_ID% --scope machine --exact --silent --accept-package-agreements --accept-source-agreements
+    echo [DRY-RUN] Would create All-Users Start Menu shortcut at %RUFUS_SHORTCUT%
+    exit /b 0
+)
+
+:: Machine scope: apps install before the standard user exists, so a per-user
+:: install would land in the admin profile. Machine scope reaches every user.
+call "%LOG%" debug "Running winget install for Rufus (machine scope)..."
+winget install --id %RUFUS_WINGET_ID% --scope machine --exact --silent --accept-package-agreements --accept-source-agreements >nul 2>&1
+
+if not exist "%RUFUS_EXE%" (
+    call "%LOG%" warn "Rufus not found after winget install - install manually from rufus.ie"
+    exit /b 0
+)
+
+:: All-Users Start Menu shortcut so the standard (non-admin) user can find it
+call :CreateRufusShortcut
+
+call "%LOG%" success "Rufus installed via winget"
+exit /b 0
+
+:CreateRufusShortcut
+if "%DRY_RUN%"=="1" goto :eof
+if exist "%RUFUS_SHORTCUT%" goto :eof
+powershell -NoProfile -Command "$s = (New-Object -ComObject WScript.Shell).CreateShortcut('%RUFUS_SHORTCUT%'); $s.TargetPath = '%RUFUS_EXE%'; $s.Description = 'Create bootable USB drives and format large drives as FAT32'; $s.Save()" >nul 2>&1
+goto :eof
 
 :: ============================================================================
 :: WINGET SOURCE INITIALIZATION
