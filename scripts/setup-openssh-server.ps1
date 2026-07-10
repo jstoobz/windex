@@ -1,4 +1,4 @@
-# setup-openssh-server.ps1 — Run this in the VM through UTM GUI (as Administrator)
+# setup-openssh-server.ps1 - Run this in the VM through UTM GUI (as Administrator)
 #
 # Sets up OpenSSH Server with key-based auth for automated access.
 # After this, the golden image supports SSH from the host via:
@@ -8,7 +8,7 @@
 #   .\setup-openssh-server.ps1 -PubKeyFile C:\path\to\key.pub
 #   .\setup-openssh-server.ps1 -PubKey "ssh-ed25519 AAAA... comment"
 #
-# Run in an elevated PowerShell: Right-click PowerShell → Run as Administrator
+# Run in an elevated PowerShell: Right-click PowerShell -> Run as Administrator
 
 param(
     [string]$PubKey = "",

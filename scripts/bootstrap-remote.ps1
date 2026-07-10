@@ -1,6 +1,6 @@
 #Requires -RunAsAdministrator
 <#
-  bootstrap-remote.ps1 — One-shot script to establish remote access.
+  bootstrap-remote.ps1 - One-shot script to establish remote access.
 
   Installs Tailscale + TigerVNC, connects to tailnet, opens firewall.
   Designed to be run once by someone with physical access to the machine.
@@ -18,7 +18,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# ── Config (from env with defaults — matches lib/config.bat) ────────
+# == Config (from env with defaults - matches lib/config.bat) ========
 $TailscaleUrl      = if ($env:TAILSCALE_URL)      { $env:TAILSCALE_URL }      else { 'https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe' }
 $TailscaleDir      = if ($env:TAILSCALE_DIR)       { $env:TAILSCALE_DIR }      else { 'C:\Program Files\Tailscale' }
 $TailscaleExe      = "$TailscaleDir\tailscale.exe"
@@ -31,7 +31,7 @@ $FwRuleVncAllow    = if ($env:FW_RULE_VNC_ALLOW)   { $env:FW_RULE_VNC_ALLOW }  e
 $FwRuleVncBlock    = if ($env:FW_RULE_VNC_BLOCK)   { $env:FW_RULE_VNC_BLOCK }  else { 'VNC-Block-All' }
 $FwRuleSshAllow    = if ($env:FW_RULE_SSH_ALLOW)   { $env:FW_RULE_SSH_ALLOW }  else { 'SSH-Tailscale-Allow' }
 
-# ── Helpers ──────────────────────────────────────────────────────────
+# == Helpers ==========================================================
 function Write-Step($msg) { Write-Host "`n>> $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "   OK: $msg" -ForegroundColor Green }
 function Write-Warn($msg) { Write-Host "   WARN: $msg" -ForegroundColor Yellow }
@@ -48,7 +48,7 @@ function Wait-ForCondition {
     }
 }
 
-# ── Validate ─────────────────────────────────────────────────────────
+# == Validate =========================================================
 if (-not $TailscaleAuthKey) {
     Write-Host @"
 
@@ -75,7 +75,7 @@ Write-Host "======================================" -ForegroundColor White
 Write-Host " Bootstrap Remote Access" -ForegroundColor White
 Write-Host "======================================" -ForegroundColor White
 
-# ── 1. Tailscale ─────────────────────────────────────────────────────
+# == 1. Tailscale =====================================================
 Write-Step "Installing Tailscale..."
 
 $tsInstalled = Test-Path $TailscaleExe
@@ -103,18 +103,18 @@ Write-Ok "Service running"
 & $TailscaleExe set --unattended 2>$null
 & $TailscaleExe up --authkey=$TailscaleAuthKey --unattended --timeout=60s
 if ($LASTEXITCODE -ne 0) {
-    throw "Tailscale authentication failed — check your auth key"
+    throw "Tailscale authentication failed - check your auth key"
 }
 
 Start-Sleep -Seconds 3
 $tsIp = & $TailscaleExe ip -4 2>$null
 if (-not $tsIp) {
-    Write-Warn "Could not retrieve Tailscale IP — check admin console"
+    Write-Warn "Could not retrieve Tailscale IP - check admin console"
 } else {
     Write-Ok "Connected: $tsIp"
 }
 
-# ── 2. VNC Server (TigerVNC) ─────────────────────────────────────────
+# == 2. VNC Server (TigerVNC) =========================================
 Write-Step "Installing TigerVNC..."
 
 $vncInstalled = Test-Path "$VncDir\winvnc4.exe"
@@ -156,7 +156,7 @@ Wait-ForCondition {
 } "VNC service running"
 Write-Ok "VNC server running on port $VncPort"
 
-# ── 3. Firewall ──────────────────────────────────────────────────────
+# == 3. Firewall ======================================================
 Write-Step "Configuring firewall..."
 
 # Remove stale VNC rules
@@ -183,7 +183,7 @@ if ($sshdRule) {
 
 Write-Ok "VNC allowed from Tailscale only ($TailscaleSubnet)"
 
-# ── 4. Profile cleanup ──────────────────────────────────────────────
+# == 4. Profile cleanup ==============================================
 Write-Step "Checking for orphaned user profiles..."
 
 $orphaned = $null
@@ -194,17 +194,17 @@ if ($StandardUsername) {
 
     if ($orphaned) {
         $count = @($orphaned).Count
-        Write-Warn "Found $count orphaned $StandardUsername profile(s) — removing..."
+        Write-Warn "Found $count orphaned $StandardUsername profile(s) - removing..."
         $orphaned | Remove-CimInstance
-        Write-Ok "Removed $count orphaned profile(s) — reboot to clear lock screen tiles"
+        Write-Ok "Removed $count orphaned profile(s) - reboot to clear lock screen tiles"
     } else {
         Write-Ok "No orphaned profiles found"
     }
 } else {
-    Write-Ok "No standard username set — skipping profile cleanup"
+    Write-Ok "No standard username set - skipping profile cleanup"
 }
 
-# ── Done ─────────────────────────────────────────────────────────────
+# == Done =============================================================
 Write-Host ""
 Write-Host "======================================" -ForegroundColor Green
 Write-Host " Remote Access Ready" -ForegroundColor Green
@@ -221,5 +221,5 @@ if ($orphaned) {
     Write-Host "  ** Reboot needed to clear duplicate lock screen tiles **" -ForegroundColor Yellow
     Write-Host ""
 }
-Write-Host "  SAVE THE VNC PASSWORD — it won't be shown again." -ForegroundColor Yellow
+Write-Host "  SAVE THE VNC PASSWORD - it won't be shown again." -ForegroundColor Yellow
 Write-Host ""
