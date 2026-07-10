@@ -83,11 +83,15 @@ if %ERRORLEVEL% EQU 0 (
     )
 )
 
+call :ScrubOrphanProfiles
+
 call :CreateUser
 if errorlevel 1 exit /b %EXIT_EXECUTION_FAILED%
 
 call :ConfigureUser
 if errorlevel 1 exit /b %EXIT_EXECUTION_FAILED%
+
+call :ClearAutoLogon
 
 call :MarkConfigured
 
@@ -97,6 +101,28 @@ exit /b %EXIT_SUCCESS%
 :: ============================================================================
 :: FUNCTIONS
 :: ============================================================================
+
+:: ============================================================================
+:: SCRUB ORPHANED PROFILES
+:: ============================================================================
+:: Defense for the duplicate lock-screen tile bug: a prior provisioning run
+:: (or OEM setup) can leave a C:\Users\<name> profile whose SAM account was
+:: deleted. Creating a new account then yields C:\Users\<name>.<COMPUTERNAME>
+:: plus a second ProfileList entry -> two identical tiles. Remove any profile
+:: under C:\Users\<name>* whose SID has NO live local account. The SID-orphan
+:: check is the safety net -- a live account's profile is never touched.
+:: Best-effort -- never fails user creation.
+:: ============================================================================
+
+:ScrubOrphanProfiles
+call "%LOG%" info "Checking for orphaned profiles from prior runs..."
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would remove C:\Users\%STD_USERNAME%* profiles whose SID has no local account
+    exit /b 0
+)
+powershell -NoProfile -Command "$u='%STD_USERNAME%'; Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like ('C:\Users\'+$u+'*') } | Where-Object { -not (Get-LocalUser -SID $_.SID -ErrorAction SilentlyContinue) } | Remove-CimInstance -ErrorAction SilentlyContinue" >nul 2>&1
+call "%LOG%" success "Orphaned profile check complete"
+exit /b 0
 
 :: ============================================================================
 :: CREATE USER
@@ -140,11 +166,35 @@ net localgroup Administrators "%STD_USERNAME%" /delete >nul 2>&1
 :: Ensure user IS in Users group
 net localgroup Users "%STD_USERNAME%" /add >nul 2>&1
 
-:: Force password change on next login
-net user "%STD_USERNAME%" /logonpasswordchg:yes >nul 2>&1
+:: Force password change on next login (the password arg is required — without
+:: it the /logonpasswordchg flag silently no-ops on Windows 11)
+net user "%STD_USERNAME%" "%STD_PASSWORD%" /logonpasswordchg:yes >nul 2>&1
 call "%LOG%" debug "Password change required on next login"
 
 call "%LOG%" success "User '%STD_USERNAME%' configured as standard user"
+exit /b 0
+
+:: ============================================================================
+:: CLEAR AUTO-LOGON
+:: ============================================================================
+:: Removes AutoAdminLogon/DefaultPassword left behind by OEM OOBE or a prior
+:: provisioning run. Stale auto-logon racing a Windows Update reboot can orphan
+:: ProfileList entries (duplicate lock-screen tiles) and leaves the account's
+:: real password unknown to the user. Best-effort — never fails user creation.
+:: ============================================================================
+
+:ClearAutoLogon
+call "%LOG%" info "Clearing any auto-logon configuration..."
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would clear AutoAdminLogon/DefaultPassword/DefaultUserName/DefaultDomainName
+    exit /b 0
+)
+set "WINLOGON=HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+reg add    "%WINLOGON%" /v "AutoAdminLogon" /t REG_SZ /d "0" /f >nul 2>&1
+reg delete "%WINLOGON%" /v "DefaultPassword" /f >nul 2>&1
+reg delete "%WINLOGON%" /v "DefaultUserName" /f >nul 2>&1
+reg delete "%WINLOGON%" /v "DefaultDomainName" /f >nul 2>&1
+call "%LOG%" success "Auto-logon disabled"
 exit /b 0
 
 :: ============================================================================

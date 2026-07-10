@@ -68,6 +68,9 @@ if errorlevel 1 set /a "HARDEN_ERRORS+=1"
 call :DisableAutoplay
 if errorlevel 1 set /a "HARDEN_ERRORS+=1"
 
+call :DisableAutoLogon
+if errorlevel 1 set /a "HARDEN_ERRORS+=1"
+
 :: Mark as hardened
 call :MarkHardened
 
@@ -155,6 +158,23 @@ if "%DRY_RUN%"=="1" (
 reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" /v "NoDriveTypeAutoRun" /t REG_DWORD /d 255 /f >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" /v "NoAutorun" /t REG_DWORD /d 1 /f >nul 2>&1
 call "%LOG%" success "Autoplay disabled"
+exit /b 0
+
+:: Auto-logon off as a hardened-baseline invariant — holds on every machine even
+:: when --skip-user is passed, and re-asserts on --force. Mirrors :ClearAutoLogon
+:: in 80-create-standard-user.bat (kept self-contained per step-script convention).
+:DisableAutoLogon
+call "%LOG%" info "Disabling auto-logon..."
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would clear AutoAdminLogon/DefaultPassword/DefaultUserName/DefaultDomainName
+    exit /b 0
+)
+set "WINLOGON=HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+reg add    "%WINLOGON%" /v "AutoAdminLogon" /t REG_SZ /d "0" /f >nul 2>&1
+reg delete "%WINLOGON%" /v "DefaultPassword" /f >nul 2>&1
+reg delete "%WINLOGON%" /v "DefaultUserName" /f >nul 2>&1
+reg delete "%WINLOGON%" /v "DefaultDomainName" /f >nul 2>&1
+call "%LOG%" success "Auto-logon disabled"
 exit /b 0
 
 :MarkHardened
