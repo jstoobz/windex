@@ -171,12 +171,27 @@ if "%DRY_RUN%"=="1" (
 call "%LOG%" debug "Running winget install for TigerVNC..."
 winget install TigerVNC.TigerVNC --silent --accept-package-agreements --accept-source-agreements >nul 2>&1
 
+:: Winget's package silently installs viewer-only (no component switches
+:: passed to the underlying Inno Setup installer) -- fall back to the
+:: dedicated server installer direct from SourceForge.
+if not exist "%VNC_DIR%\winvnc4.exe" (
+    call "%LOG%" info "Winget install produced viewer only, downloading TigerVNC server installer directly..."
+    set "VNC_WINVNC_SETUP=%TEMP%\tigervnc-winvnc.exe"
+    powershell -NoProfile -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri '%TIGERVNC_WINVNC_URL%' -OutFile '%VNC_WINVNC_SETUP%' -UseBasicParsing"
+    if errorlevel 1 (
+        call "%LOG%" error "Failed to download TigerVNC server installer"
+        exit /b 1
+    )
+    "%VNC_WINVNC_SETUP%" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+    del "%VNC_WINVNC_SETUP%" 2>nul
+)
+
 :: Verify executable exists
 if exist "%VNC_DIR%\winvnc4.exe" (
-    call "%LOG%" success "TigerVNC installed via winget"
+    call "%LOG%" success "TigerVNC server installed"
 ) else (
     call "%LOG%" error "TigerVNC installation failed"
-    call "%LOG%" info "Try manually: winget install TigerVNC.TigerVNC"
+    call "%LOG%" info "Try manually: %TIGERVNC_WINVNC_URL%"
     exit /b 1
 )
 

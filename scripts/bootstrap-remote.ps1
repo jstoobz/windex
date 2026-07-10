@@ -24,6 +24,7 @@ $TailscaleDir      = if ($env:TAILSCALE_DIR)       { $env:TAILSCALE_DIR }      e
 $TailscaleExe      = "$TailscaleDir\tailscale.exe"
 $VncDir            = if ($env:VNC_DIR)              { $env:VNC_DIR }            else { 'C:\Program Files\TigerVNC' }
 $VncService        = if ($env:VNC_SERVICE)          { $env:VNC_SERVICE }        else { 'winvnc4' }
+$TigerVncWinvncUrl = if ($env:TIGERVNC_WINVNC_URL)  { $env:TIGERVNC_WINVNC_URL } else { 'https://sourceforge.net/projects/tigervnc/files/stable/1.16.2/tigervnc64-winvnc-1.16.2.exe/download' }
 $VncPort           = if ($env:VNC_PORT)             { [int]$env:VNC_PORT }      else { 5900 }
 $TailscaleSubnet   = if ($env:TAILSCALE_SUBNET)    { $env:TAILSCALE_SUBNET }   else { '100.64.0.0/10' }
 $VncPasswordLength = if ($env:VNC_PASSWORD_LENGTH)  { [int]$env:VNC_PASSWORD_LENGTH } else { 16 }
@@ -122,6 +123,20 @@ if ($vncInstalled) {
     Write-Ok "TigerVNC already installed"
 } else {
     winget install TigerVNC.TigerVNC --silent --accept-package-agreements --accept-source-agreements | Out-Null
+
+    # Winget's TigerVNC.TigerVNC package silently installs viewer-only (no
+    # component switches passed to the underlying Inno Setup installer) --
+    # winvnc4.exe never appears. Fall back to the dedicated server installer
+    # direct from SourceForge. Confirmed live 2026-07-10.
+    if (-not (Test-Path "$VncDir\winvnc4.exe")) {
+        Write-Warn "winget installed viewer only -- fetching TigerVNC server installer directly"
+        $winvncInstaller = "$env:TEMP\tigervnc-winvnc.exe"
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri $TigerVncWinvncUrl -OutFile $winvncInstaller -UseBasicParsing
+        Start-Process -FilePath $winvncInstaller -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+        Remove-Item $winvncInstaller -ErrorAction SilentlyContinue
+    }
+
     Wait-ForCondition { Test-Path "$VncDir\winvnc4.exe" } "TigerVNC executable"
     Write-Ok "TigerVNC installed"
 }
