@@ -55,6 +55,17 @@ if errorlevel 1 (
     exit /b %EXIT_EXECUTION_FAILED%
 )
 
+:: Self-check: if this network blocks the filtering resolver the machine would be
+:: "connected but no internet". Resolve a hostname; on failure revert to DHCP so
+:: the box stays usable (confirmed live on a network that blocked %DNS_PRIMARY%).
+:: Not marked configured on revert, so a later run on a permissive network retries.
+call :VerifyDnsResolution
+if errorlevel 1 (
+    call :RevertDnsToDhcp
+    call "%LOG%" warn "DNS filtering not applied: this network blocks %DNS_PRIMARY% -- reverted to DHCP so internet stays up"
+    exit /b %EXIT_PARTIAL_SUCCESS%
+)
+
 call :MarkConfigured
 
 call "%LOG%" success "DNS filtering configured successfully"
@@ -104,6 +115,35 @@ if errorlevel 1 (
 )
 
 call "%LOG%" success "DNS filtering set to Cloudflare Family (%DNS_PRIMARY% / %DNS_SECONDARY%)"
+exit /b 0
+
+:: ============================================================================
+:: DNS RESOLUTION SELF-CHECK + REVERT
+:: ============================================================================
+
+:VerifyDnsResolution
+call "%LOG%" info "Verifying DNS resolution works on this network..."
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would resolve a hostname via the new DNS, reverting to DHCP on failure
+    exit /b 0
+)
+:: Clear the cache first so we test the configured servers, not a stale answer
+powershell -NoProfile -Command "Clear-DnsClientCache; try { Resolve-DnsName -Name microsoft.com -QuickTimeout -ErrorAction Stop | Out-Null; exit 0 } catch { exit 1 }"
+if errorlevel 1 (
+    call "%LOG%" warn "DNS resolution failed against %DNS_PRIMARY% on this network"
+    exit /b 1
+)
+call "%LOG%" success "DNS resolution verified"
+exit /b 0
+
+:RevertDnsToDhcp
+call "%LOG%" info "Reverting adapters to DHCP-provided DNS..."
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would reset DNS to DHCP on all active adapters
+    exit /b 0
+)
+powershell -NoProfile -Command "Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | ForEach-Object { Set-DnsClientServerAddress -InterfaceIndex $_.ifIndex -ResetServerAddresses }; Clear-DnsClientCache"
+call "%LOG%" success "DNS reset to DHCP"
 exit /b 0
 
 :: ============================================================================
