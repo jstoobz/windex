@@ -70,13 +70,17 @@ if not defined TAILSCALE_SUBNET set "TAILSCALE_SUBNET=100.64.0.0/10"
 :: falls back to the dedicated server installer direct from SourceForge.
 :: Confirmed live 2026-07-10: TigerVNC.TigerVNC's winget package wraps the
 :: combined Inno Setup installer, which silently defaults to viewer-only
-:: with no component switches passed - winvnc4.exe never appears.)
+:: with no component switches passed - winvnc4.exe never appears.
+:: Use the downloads.sourceforge.net/project/... URL form, NOT the
+:: sourceforge.net/.../download browser-page URL -- the latter depends on
+:: cookie continuity across an internal redirect chain and silently serves
+:: an HTML mirror-selection page to scripted clients instead of the binary.)
 :: ============================================================================
 if not defined VNC_PORT set "VNC_PORT=5900"
 if not defined VNC_PASSWORD_LENGTH set "VNC_PASSWORD_LENGTH=16"
 if not defined VNC_DIR set "VNC_DIR=C:\Program Files\TigerVNC"
 if not defined VNC_SERVICE set "VNC_SERVICE=winvnc4"
-if not defined TIGERVNC_WINVNC_URL set "TIGERVNC_WINVNC_URL=https://sourceforge.net/projects/tigervnc/files/stable/1.16.2/tigervnc64-winvnc-1.16.2.exe/download"
+if not defined TIGERVNC_WINVNC_URL set "TIGERVNC_WINVNC_URL=https://downloads.sourceforge.net/project/tigervnc/stable/1.16.2/tigervnc64-winvnc-1.16.2.exe"
 
 :: ============================================================================
 :: FIREWALL CONFIGURATION
