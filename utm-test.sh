@@ -29,6 +29,7 @@ STD_PASSWORD=""
 DRY_RUN=false
 KEEP_RUNNING=false
 VERBOSE=false
+EXTRA_MASTER_ARGS=""
 
 for arg in "$@"; do
     case "$arg" in
@@ -39,6 +40,7 @@ for arg in "$@"; do
         --dry-run) DRY_RUN=true ;;
         --keep-running) KEEP_RUNNING=true ;;
         --verbose) VERBOSE=true ;;
+        --skip-*) EXTRA_MASTER_ARGS="$EXTRA_MASTER_ARGS $arg" ;;
         --help | -h)
             echo "Usage: utm-test.sh --user=<winuser> --authkey=tskey-auth-xxx [options]"
             echo ""
@@ -226,9 +228,17 @@ fi
 if [[ -n "$SSH_PUBKEY" ]]; then
     master_cmd="${master_cmd}set \"ADMIN_SSH_PUBKEY=$SSH_PUBKEY\"& "
 fi
+# SLIRP host connections arrive from 10.0.2.2 - keep it in the SSH firewall
+# scope or the suite's Tailscale-only restriction severs the harness session
+master_cmd="${master_cmd}set \"SSH_EXTRA_ALLOW=10.0.2.2\"& "
 master_cmd="${master_cmd}${GUEST_DIR_WIN}\\scripts\\00-setup-master.bat --force"
 # SLIRP networking can't route DNS to external servers — always skip DNS step
 master_cmd="$master_cmd --skip-dns"
+# Pass through any --skip-* flags given to this script (e.g. --skip-vnc while
+# the TigerVNC download fix is pending)
+if [[ -n "${EXTRA_MASTER_ARGS:-}" ]]; then
+    master_cmd="$master_cmd$EXTRA_MASTER_ARGS"
+fi
 if $DRY_RUN; then
     master_cmd="$master_cmd --dry-run"
 fi

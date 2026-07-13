@@ -62,6 +62,12 @@ if errorlevel 1 set /a "HARDEN_ERRORS+=1"
 call :DisableUnnecessaryServices
 if errorlevel 1 set /a "HARDEN_ERRORS+=1"
 
+call :DisableTelemetryTasks
+if errorlevel 1 set /a "HARDEN_ERRORS+=1"
+
+call :DisableRDP
+if errorlevel 1 set /a "HARDEN_ERRORS+=1"
+
 call :VerifyWindowsDefender
 if errorlevel 1 set /a "HARDEN_ERRORS+=1"
 
@@ -96,6 +102,7 @@ if "%DRY_RUN%"=="1" (
 if not exist "%BACKUP_DIR%" mkdir "%BACKUP_DIR%" 2>nul
 reg export "HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection" "%BACKUP_DIR%\DataCollection.reg" /y >nul 2>&1
 reg export "HKLM\SYSTEM\CurrentControlSet\Control\Remote Assistance" "%BACKUP_DIR%\RemoteAssistance.reg" /y >nul 2>&1
+reg export "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server" "%BACKUP_DIR%\TerminalServer.reg" /y >nul 2>&1
 call "%LOG%" debug "Registry backup saved to: %BACKUP_DIR%"
 exit /b 0
 
@@ -121,18 +128,54 @@ reg add "HKLM\SOFTWARE\Policies\Microsoft\SQMClient\Windows" /v "CEIPEnable" /t 
 call "%LOG%" success "Telemetry reduced to minimum"
 exit /b 0
 
+:: Telemetry-only services are safe to disable: DiagTrack and dmwappushservice
+:: carry diagnostics, RetailDemo is store-demo mode. Nothing here touches the
+:: network stack, Windows Update, or Tailscale/VNC. Deliberately NOT disabled:
+:: WSearch (breaks search for a non-technical user), MapsBroker, Delivery
+:: Optimization (Windows Update uses it as a downloader).
 :DisableUnnecessaryServices
 call "%LOG%" info "Reviewing unnecessary services..."
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would review and disable unnecessary services
+    echo [DRY-RUN] Would disable services: RemoteRegistry, DiagTrack, dmwappushservice, RetailDemo
     exit /b 0
 )
-sc query RemoteRegistry >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    sc config RemoteRegistry start= disabled >nul 2>&1
-    sc stop RemoteRegistry >nul 2>&1
-    call "%LOG%" success "RemoteRegistry service disabled"
+for %%S in (RemoteRegistry DiagTrack dmwappushservice RetailDemo) do (
+    sc query %%S >nul 2>&1
+    if !ERRORLEVEL! EQU 0 (
+        sc config %%S start= disabled >nul 2>&1
+        sc stop %%S >nul 2>&1
+        call "%LOG%" success "%%S service disabled"
+    )
 )
+exit /b 0
+
+:: CEIP/Compatibility-Appraiser scheduled tasks keep collecting even after
+:: DiagTrack is stopped. Best-effort - task names vary slightly across builds.
+:DisableTelemetryTasks
+call "%LOG%" info "Disabling telemetry scheduled tasks..."
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would disable CEIP, Compatibility Appraiser, and feedback scheduled tasks
+    exit /b 0
+)
+schtasks /change /disable /tn "\Microsoft\Windows\Application Experience\Microsoft Compatibility Appraiser" >nul 2>&1
+schtasks /change /disable /tn "\Microsoft\Windows\Application Experience\ProgramDataUpdater" >nul 2>&1
+schtasks /change /disable /tn "\Microsoft\Windows\Customer Experience Improvement Program\Consolidator" >nul 2>&1
+schtasks /change /disable /tn "\Microsoft\Windows\Customer Experience Improvement Program\UsbCeip" >nul 2>&1
+schtasks /change /disable /tn "\Microsoft\Windows\Autochk\Proxy" >nul 2>&1
+schtasks /change /disable /tn "\Microsoft\Windows\Feedback\Siuf\DmClient" >nul 2>&1
+schtasks /change /disable /tn "\Microsoft\Windows\Feedback\Siuf\DmClientOnScenarioDownload" >nul 2>&1
+call "%LOG%" success "Telemetry scheduled tasks disabled"
+exit /b 0
+
+:: TigerVNC over Tailscale is the remote path; RDP is unused attack surface.
+:DisableRDP
+call "%LOG%" info "Disabling Remote Desktop..."
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would set fDenyTSConnections=1
+    exit /b 0
+)
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server" /v "fDenyTSConnections" /t REG_DWORD /d 1 /f >nul 2>&1
+call "%LOG%" success "Remote Desktop disabled"
 exit /b 0
 
 :VerifyWindowsDefender

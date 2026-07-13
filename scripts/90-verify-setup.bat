@@ -94,9 +94,12 @@ if %ERRORLEVEL% EQU 0 (
 )
 
 :: Check 3: Tailscale is connected
+:: An assigned 100.x address is the reliable connectivity signal. Do NOT gate
+:: this on `tailscale status`'s exit code - the CLI exits non-zero while the
+:: backend settles even when the node is registered, up, and addressed.
 set /a "TOTAL_CHECKS+=1"
-"%TAILSCALE_EXE%" status >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
+for /f "tokens=*" %%I in ('"%TAILSCALE_EXE%" ip -4 2^>nul') do set "TAILSCALE_IP=%%I"
+if defined TAILSCALE_IP (
     call :CheckPass "Tailscale is connected"
 ) else (
     call :CheckFail "Tailscale is not connected"
@@ -104,7 +107,6 @@ if %ERRORLEVEL% EQU 0 (
 
 :: Check 4: Tailscale has an IP address
 set /a "TOTAL_CHECKS+=1"
-for /f "tokens=*" %%I in ('"%TAILSCALE_EXE%" ip -4 2^>nul') do set "TAILSCALE_IP=%%I"
 if defined TAILSCALE_IP (
     call :CheckPass "Tailscale IP: %TAILSCALE_IP%"
 ) else (

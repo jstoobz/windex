@@ -75,14 +75,17 @@ Each component can be run separately:
 |--------|---------|
 | `10-install-tailscale.bat` | Install and configure Tailscale VPN |
 | `20-install-tightvnc.bat` | Install TightVNC with secure password |
+| `25-install-openssh.bat` | Install OpenSSH Server |
 | `30-configure-firewall.bat` | Restrict VNC to Tailscale network |
+| `35-debloat-apps.bat` | Remove bloatware apps, OneDrive, OEM/AV trialware |
+| `37-suppress-nags.bat` | Silence Windows ads, tips, and upsell nags |
 | `40-harden-system.bat` | Apply security hardening |
 | `45-configure-power.bat` | Power plan, sleep settings, update hours |
 | `50-configure-services.bat` | Configure auto-start and recovery |
 | `60-install-apps.bat` | Install Chrome, iTunes, Malwarebytes |
 | `65-configure-dns.bat` | DNS filtering (malware/phishing) |
 | `70-harden-chrome.bat` | Chrome policies and extension hardening |
-| `75-customize-desktop.bat` | Remove bloatware, create shortcuts |
+| `75-customize-desktop.bat` | Create desktop shortcuts |
 | `80-create-standard-user.bat` | Create non-admin daily-use account |
 | `90-verify-setup.bat` | Verify installation |
 | `99-rollback.bat` | Remove all components |

@@ -44,7 +44,7 @@ ssh "${SSH_COMMON[@]}" -p "$SSH_PORT" "$SSH_USER@localhost" \
 
 count=0
 
-for f in "$SCRIPTS_DIR"/*.bat; do
+for f in "$SCRIPTS_DIR"/*.bat "$SCRIPTS_DIR"/*.ps1; do
     [[ -f "$f" ]] || continue
     fname=$(basename "$f")
     if scp "${SSH_COMMON[@]}" -P "$SSH_PORT" "$f" "$SSH_USER@localhost:$GUEST_SCRIPTS/$fname" 2> /dev/null; then

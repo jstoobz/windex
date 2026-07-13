@@ -19,10 +19,16 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "`n=== OpenSSH Server Setup ===" -ForegroundColor Cyan
 
-# Step 1: Check if OpenSSH Server is already installed
+# Step 1: Check if OpenSSH Server is already installed.
+# Service-aware, not just capability-aware: a third-party sshd (e.g. the
+# GitHub Win32-OpenSSH build on the golden image) registers the same service
+# name - installing the in-box capability alongside it would collide.
+$sshdService = Get-Service sshd -ErrorAction SilentlyContinue
 $sshCapability = Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH.Server*'
 
-if ($sshCapability.State -eq 'Installed') {
+if ($sshdService) {
+    Write-Host "[OK] sshd service already present - skipping capability install" -ForegroundColor Green
+} elseif ($sshCapability.State -eq 'Installed') {
     Write-Host "[OK] OpenSSH Server already installed" -ForegroundColor Green
 } else {
     Write-Host "[....] Installing OpenSSH Server (requires internet)..."
@@ -52,10 +58,17 @@ Write-Host "[OK] sshd started and set to auto-start" -ForegroundColor Green
 # avoid leaving port 22 world-open between this script and the .bat wrapper.
 $fwRule = Get-NetFirewallRule -Name *ssh* -ErrorAction SilentlyContinue
 $tsSubnet = $env:TAILSCALE_SUBNET
+# SSH_EXTRA_ALLOW (optional): extra remote address kept in scope alongside the
+# Tailscale subnet. The VM test harness sets it to the SLIRP gateway
+# (10.0.2.2) - without it, restricting the rule severs the SSH session that
+# is running this very script.
+$sshScope = @()
+if ($tsSubnet) { $sshScope += $tsSubnet }
+if ($env:SSH_EXTRA_ALLOW) { $sshScope += $env:SSH_EXTRA_ALLOW }
 if ($fwRule) {
-    if ($tsSubnet) {
-        Set-NetFirewallRule -Name $fwRule.Name -Profile Any -RemoteAddress $tsSubnet
-        Write-Host "[OK] Firewall rule exists: $($fwRule.Name) (restricted to $tsSubnet)" -ForegroundColor Green
+    if ($sshScope.Count -gt 0) {
+        Set-NetFirewallRule -Name $fwRule.Name -Profile Any -RemoteAddress $sshScope
+        Write-Host "[OK] Firewall rule exists: $($fwRule.Name) (restricted to $($sshScope -join ','))" -ForegroundColor Green
     } else {
         Set-NetFirewallRule -Name $fwRule.Name -Profile Any
         Write-Host "[OK] Firewall rule exists: $($fwRule.Name) (set to all profiles)" -ForegroundColor Green
@@ -67,9 +80,9 @@ if ($fwRule) {
         Enabled = 'True'; Direction = 'Inbound'; Protocol = 'TCP'
         Action = 'Allow'; LocalPort = 22; Profile = 'Any'
     }
-    if ($tsSubnet) { $ruleParams['RemoteAddress'] = $tsSubnet }
+    if ($sshScope.Count -gt 0) { $ruleParams['RemoteAddress'] = $sshScope }
     New-NetFirewallRule @ruleParams | Out-Null
-    $scopeMsg = if ($tsSubnet) { "restricted to $tsSubnet" } else { "all profiles" }
+    $scopeMsg = if ($sshScope.Count -gt 0) { "restricted to $($sshScope -join ',')" } else { "all profiles" }
     Write-Host "[OK] Firewall rule created ($scopeMsg)" -ForegroundColor Green
 }
 

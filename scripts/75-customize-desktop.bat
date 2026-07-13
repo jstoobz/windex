@@ -1,9 +1,9 @@
 @echo off
 ::==============================================================================
-:: 75-customize-desktop.bat - Desktop and Start Menu Customization
+:: 75-customize-desktop.bat - Desktop Customization
 ::==============================================================================
-:: Removes Win11 bloatware pins, creates desktop shortcuts for essential
-:: apps, and pins them to the taskbar.
+:: Creates desktop shortcuts for essential apps. Bloatware Appx removal moved
+:: to 35-debloat-apps.bat (runs earlier, before user creation).
 ::==============================================================================
 setlocal EnableDelayedExpansion
 
@@ -30,7 +30,7 @@ goto :ParseArgs
 :: ============================================================================
 :: MAIN EXECUTION
 :: ============================================================================
-call "%LOG%" section "Desktop and Start Menu Customization"
+call "%LOG%" section "Desktop Customization"
 
 :: Check for admin privileges
 call "%ADMIN%"
@@ -51,9 +51,6 @@ if %ERRORLEVEL% EQU 0 (
 
 set "CUSTOM_ERRORS=0"
 
-call :RemoveBloatwarePins
-if errorlevel 1 set /a "CUSTOM_ERRORS+=1"
-
 call :CreateDesktopShortcuts
 if errorlevel 1 set /a "CUSTOM_ERRORS+=1"
 
@@ -70,43 +67,6 @@ exit /b %EXIT_SUCCESS%
 :: ============================================================================
 :: FUNCTIONS
 :: ============================================================================
-
-:: ============================================================================
-:: REMOVE BLOATWARE PINS
-:: ============================================================================
-
-:RemoveBloatwarePins
-call "%LOG%" info "Removing bloatware Start menu pins..."
-
-if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would remove provisioned appx packages - bloatware:
-    echo [DRY-RUN]   Clipchamp, BingNews, BingWeather, GetHelp, Getstarted
-    echo [DRY-RUN]   MicrosoftSolitaireCollection, MicrosoftStickyNotes
-    echo [DRY-RUN]   People, PowerAutomate, Todos, WindowsFeedbackHub
-    echo [DRY-RUN]   ZuneMusic, ZuneVideo, OutlookForWindows
-    exit /b 0
-)
-
-:: Remove common Win11 bloatware appx packages
-:: These are provisioned packages — removing them unpins from Start and
-:: prevents reinstall for new users
-set "BLOAT_PACKAGES=Clipchamp.Clipchamp Microsoft.BingNews Microsoft.BingWeather"
-set "BLOAT_PACKAGES=%BLOAT_PACKAGES% Microsoft.GetHelp Microsoft.Getstarted"
-set "BLOAT_PACKAGES=%BLOAT_PACKAGES% Microsoft.MicrosoftSolitaireCollection"
-set "BLOAT_PACKAGES=%BLOAT_PACKAGES% Microsoft.MicrosoftStickyNotes"
-set "BLOAT_PACKAGES=%BLOAT_PACKAGES% Microsoft.People Microsoft.PowerAutomateDesktop"
-set "BLOAT_PACKAGES=%BLOAT_PACKAGES% Microsoft.Todos Microsoft.WindowsFeedbackHub"
-set "BLOAT_PACKAGES=%BLOAT_PACKAGES% Microsoft.ZuneMusic Microsoft.ZuneVideo"
-set "BLOAT_PACKAGES=%BLOAT_PACKAGES% Microsoft.OutlookForWindows"
-
-for %%P in (%BLOAT_PACKAGES%) do (
-    call "%LOG%" debug "Removing: %%P"
-    powershell -NoProfile -Command "Get-AppxPackage -AllUsers '%%P' | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue" >nul 2>&1
-    powershell -NoProfile -Command "Get-AppxProvisionedPackage -Online | Where-Object DisplayName -eq '%%P' | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue" >nul 2>&1
-)
-
-call "%LOG%" success "Bloatware packages removed"
-exit /b 0
 
 :: ============================================================================
 :: DESKTOP SHORTCUTS

@@ -74,6 +74,11 @@ if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
 call :RemoveDesktopShortcuts
 if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
 
+call :RevertNagSuppression
+if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
+
+call :NoteAppxDebloat
+
 call :RemoveFirewallRules
 if errorlevel 1 set /a "ROLLBACK_ERRORS+=1"
 
@@ -304,6 +309,78 @@ if exist "%RUFUS_SHORTCUT%" (
 )
 
 call "%LOG%" success "Desktop shortcuts removed"
+exit /b 0
+
+:: Reverts 37-suppress-nags: removes the HKLM policies the suite owns and the
+:: Default-hive RunOnce hook. Seeded per-user preference values are left in
+:: place - they are harmless prefs, not remote-access footprint.
+:RevertNagSuppression
+reg query "%SETUP_REG_KEY%" /v "NagsSuppressed" >nul 2>&1
+if not %ERRORLEVEL% EQU 0 (
+    call "%LOG%" debug "Nag suppression not applied, skipping"
+    exit /b 0
+)
+call "%LOG%" info "Reverting nag suppression policies..."
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would remove Edge/Widgets/WindowsAI/OneDrive policy values and the Default-hive RunOnce hook
+    exit /b 0
+)
+:: Delete only the values 37-suppress-nags.bat wrote - never whole keys,
+:: which could carry policy set by tooling outside this suite
+set "EDGE_POL=HKLM\SOFTWARE\Policies\Microsoft\Edge"
+reg delete "%EDGE_POL%" /v "HideFirstRunExperience" /f >nul 2>&1
+reg delete "%EDGE_POL%" /v "BrowserSignin" /f >nul 2>&1
+reg delete "%EDGE_POL%" /v "SpotlightExperiencesAndRecommendationsEnabled" /f >nul 2>&1
+reg delete "%EDGE_POL%" /v "ShowRecommendationsEnabled" /f >nul 2>&1
+reg delete "%EDGE_POL%" /v "DefaultBrowserSettingEnabled" /f >nul 2>&1
+reg delete "%EDGE_POL%" /v "StartupBoostEnabled" /f >nul 2>&1
+reg delete "%EDGE_POL%" /v "BackgroundModeEnabled" /f >nul 2>&1
+reg delete "%EDGE_POL%" /v "HubsSidebarEnabled" /f >nul 2>&1
+reg delete "%EDGE_POL%" /v "NewTabPageContentEnabled" /f >nul 2>&1
+reg delete "%EDGE_POL%" /v "EdgeShoppingAssistantEnabled" /f >nul 2>&1
+reg delete "%EDGE_POL%" /v "PersonalizationReportingEnabled" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Dsh" /v "AllowNewsAndInterests" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer" /v "HideRecommendedSection" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo" /v "DisabledByGroupPolicy" /f >nul 2>&1
+set "WINAI_POL=HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI"
+reg delete "%WINAI_POL%" /v "AllowRecallEnablement" /f >nul 2>&1
+reg delete "%WINAI_POL%" /v "DisableAIDataAnalysis" /f >nul 2>&1
+reg delete "%WINAI_POL%" /v "DisableClickToDo" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot" /v "TurnOffWindowsCopilot" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\OneDrive" /v "KFMBlockOptIn" /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\OneDrive" /v "DisableFileSyncNGSC" /f >nul 2>&1
+
+:: Per-user POLICY value - leaving it makes the Settings search toggle read
+:: "managed by your organization". Plain preference values are left alone.
+reg delete "HKCU\Software\Policies\Microsoft\Windows\Explorer" /v "DisableSearchBoxSuggestions" /f >nul 2>&1
+
+reg load HKU\DefUser "%SystemDrive%\Users\Default\NTUSER.DAT" >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    reg delete "HKU\DefUser\Software\Microsoft\Windows\CurrentVersion\RunOnce" /v "WindexNagSuppress" /f >nul 2>&1
+    reg delete "HKU\DefUser\Software\Policies\Microsoft\Windows\Explorer" /v "DisableSearchBoxSuggestions" /f >nul 2>&1
+    set "UNLOAD_OK=0"
+    for /l %%R in (1,1,3) do (
+        if "!UNLOAD_OK!"=="0" (
+            reg unload HKU\DefUser >nul 2>&1
+            if !ERRORLEVEL! EQU 0 (
+                set "UNLOAD_OK=1"
+            ) else (
+                ping -n 3 127.0.0.1 >nul
+            )
+        )
+    )
+    if "!UNLOAD_OK!"=="0" call "%LOG%" warn "Failed to unload Default-User hive - a reboot will release it"
+)
+call "%LOG%" success "Nag suppression policies removed"
+exit /b 0
+
+:: 35-debloat-apps cannot be rolled back by script: removed Appx packages
+:: come back via the Microsoft Store, OneDrive via OneDriveSetup.exe/winget.
+:NoteAppxDebloat
+reg query "%SETUP_REG_KEY%" /v "AppsDebloated" >nul 2>&1
+if not %ERRORLEVEL% EQU 0 exit /b 0
+call "%LOG%" info "App debloat is not reversible by rollback"
+call "%LOG%" info "Reinstall removed apps from the Microsoft Store if needed"
 exit /b 0
 
 :RemoveFirewallRules

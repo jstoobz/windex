@@ -16,6 +16,8 @@
 ::   --skip-vnc          Skip VNC Server installation
 ::   --skip-openssh      Skip OpenSSH Server installation
 ::   --skip-firewall     Skip firewall configuration
+::   --skip-debloat      Skip app debloat and trialware removal
+::   --skip-nags         Skip nag and ad suppression
 ::   --skip-hardening    Skip system hardening
 ::   --skip-apps         Skip essential app installation
 ::   --skip-chrome       Skip Chrome hardening
@@ -47,6 +49,8 @@ if errorlevel 1 (
 set "SKIP_TAILSCALE=0"
 set "SKIP_VNC=0"
 set "SKIP_FIREWALL=0"
+set "SKIP_DEBLOAT=0"
+set "SKIP_NAGS=0"
 set "SKIP_HARDENING=0"
 set "SKIP_APPS=0"
 set "SKIP_CHROME_HARDENING=0"
@@ -70,6 +74,8 @@ if /i "%~1"=="--skip-tailscale" set "SKIP_TAILSCALE=1"
 if /i "%~1"=="--skip-vnc" set "SKIP_VNC=1"
 if /i "%~1"=="--skip-openssh" set "SKIP_OPENSSH=1"
 if /i "%~1"=="--skip-firewall" set "SKIP_FIREWALL=1"
+if /i "%~1"=="--skip-debloat" set "SKIP_DEBLOAT=1"
+if /i "%~1"=="--skip-nags" set "SKIP_NAGS=1"
 if /i "%~1"=="--skip-hardening" set "SKIP_HARDENING=1"
 if /i "%~1"=="--skip-apps" set "SKIP_APPS=1"
 if /i "%~1"=="--skip-chrome" set "SKIP_CHROME_HARDENING=1"
@@ -155,7 +161,7 @@ if "%FORCE%"=="0" (
 )
 
 :: Initialize step tracking
-set "STEPS_TOTAL=13"
+set "STEPS_TOTAL=15"
 set "STEPS_COMPLETED=0"
 set "STEPS_FAILED=0"
 set "STEPS_SKIPPED=0"
@@ -210,7 +216,34 @@ if "%SKIP_FIREWALL%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 5: System Hardening
+:: STEP 5: App Debloat and Trialware Removal
+:: ============================================================================
+:: Runs before user creation so the standard user's profile never inherits
+:: bloat, and before hardening/apps so removals happen on a quiet system.
+if "%SKIP_DEBLOAT%"=="1" (
+    call :StepSkipped "App Debloat"
+) else (
+    call :RunStep "App Debloat" "35-debloat-apps.bat"
+    if errorlevel 1 (
+        if "%CONTINUE_ON_ERROR%"=="0" goto :SetupFailed
+    )
+)
+
+:: ============================================================================
+:: STEP 6: Nag and Ad Suppression
+:: ============================================================================
+:: Seeds the Default-User hive - must run before step 13 (user creation).
+if "%SKIP_NAGS%"=="1" (
+    call :StepSkipped "Nag Suppression"
+) else (
+    call :RunStep "Nag Suppression" "37-suppress-nags.bat"
+    if errorlevel 1 (
+        if "%CONTINUE_ON_ERROR%"=="0" goto :SetupFailed
+    )
+)
+
+:: ============================================================================
+:: STEP 7: System Hardening
 :: ============================================================================
 if "%SKIP_HARDENING%"=="1" (
     call :StepSkipped "System Hardening"
@@ -222,7 +255,7 @@ if "%SKIP_HARDENING%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 6: Power and Update Settings
+:: STEP 8: Power and Update Settings
 :: ============================================================================
 if "%SKIP_POWER%"=="1" (
     call :StepSkipped "Power and Update Settings"
@@ -234,7 +267,7 @@ if "%SKIP_POWER%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 7: Install Essential Apps
+:: STEP 9: Install Essential Apps
 :: ============================================================================
 if "%SKIP_APPS%"=="1" (
     call :StepSkipped "Essential App Installation"
@@ -246,7 +279,7 @@ if "%SKIP_APPS%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 8: DNS Filtering
+:: STEP 10: DNS Filtering
 :: ============================================================================
 if "%SKIP_DNS%"=="1" (
     call :StepSkipped "DNS Filtering"
@@ -258,7 +291,7 @@ if "%SKIP_DNS%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 9: Harden Chrome
+:: STEP 11: Harden Chrome
 :: ============================================================================
 if "%SKIP_CHROME_HARDENING%"=="1" (
     call :StepSkipped "Chrome Hardening"
@@ -270,7 +303,7 @@ if "%SKIP_CHROME_HARDENING%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 10: Desktop Customization
+:: STEP 12: Desktop Customization
 :: ============================================================================
 if "%SKIP_DESKTOP%"=="1" (
     call :StepSkipped "Desktop Customization"
@@ -282,7 +315,7 @@ if "%SKIP_DESKTOP%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 11: Standard User Account
+:: STEP 13: Standard User Account
 :: ============================================================================
 if "%SKIP_USER%"=="1" (
     call :StepSkipped "Standard User Account"
@@ -294,7 +327,7 @@ if "%SKIP_USER%"=="1" (
 )
 
 :: ============================================================================
-:: STEP 12: Configure Services
+:: STEP 14: Configure Services
 :: ============================================================================
 call :RunStep "Service Configuration" "50-configure-services.bat"
 if errorlevel 1 (
@@ -302,7 +335,7 @@ if errorlevel 1 (
 )
 
 :: ============================================================================
-:: STEP 13: Verify Setup
+:: STEP 15: Verify Setup
 :: ============================================================================
 call :RunStep "Setup Verification" "90-verify-setup.bat"
 set "VERIFY_RESULT=%ERRORLEVEL%"
@@ -351,15 +384,17 @@ if "%SKIP_TAILSCALE%"=="0" echo    1. Install Tailscale VPN
 if "%SKIP_VNC%"=="0"       echo    2. Install VNC Server
 if "%SKIP_OPENSSH%"=="0"   echo    3. Install OpenSSH Server
 if "%SKIP_FIREWALL%"=="0"  echo    4. Configure Windows Firewall
-if "%SKIP_HARDENING%"=="0" echo    5. Apply security hardening
-if "%SKIP_POWER%"=="0"     echo    6. Configure power and update settings
-if "%SKIP_APPS%"=="0"      echo    7. Install essential apps (Chrome, iTunes, Malwarebytes)
-if "%SKIP_DNS%"=="0"       echo    8. Configure DNS filtering (malware/phishing protection)
-if "%SKIP_CHROME_HARDENING%"=="0" echo    9. Harden Chrome browser
-if "%SKIP_DESKTOP%"=="0"   echo   10. Customize desktop and Start menu
-if "%SKIP_USER%"=="0"      echo   11. Create standard user account
-echo   12. Configure services for auto-start
-echo   13. Verify the installation
+if "%SKIP_DEBLOAT%"=="0"   echo    5. Remove bloatware apps and trialware
+if "%SKIP_NAGS%"=="0"      echo    6. Suppress Windows nags and ads
+if "%SKIP_HARDENING%"=="0" echo    7. Apply security hardening
+if "%SKIP_POWER%"=="0"     echo    8. Configure power and update settings
+if "%SKIP_APPS%"=="0"      echo    9. Install essential apps (Chrome, iTunes, Malwarebytes)
+if "%SKIP_DNS%"=="0"       echo   10. Configure DNS filtering (malware/phishing protection)
+if "%SKIP_CHROME_HARDENING%"=="0" echo   11. Harden Chrome browser
+if "%SKIP_DESKTOP%"=="0"   echo   12. Customize desktop and Start menu
+if "%SKIP_USER%"=="0"      echo   13. Create standard user account
+echo   14. Configure services for auto-start
+echo   15. Verify the installation
 echo.
 echo  ============================================================
 echo.
@@ -394,8 +429,9 @@ if %STEP_RESULT% EQU 0 (
     set /a "STEPS_COMPLETED+=1"
     exit /b 0
 ) else if %STEP_RESULT% EQU 5 (
+    rem Partial success counts as success - the step logged its warnings.
     set /a "STEPS_COMPLETED+=1"
-    exit /b 5
+    exit /b 0
 ) else (
     set /a "STEPS_FAILED+=1"
     exit /b %STEP_RESULT%
@@ -502,6 +538,8 @@ echo   --skip-tailscale    Skip Tailscale installation
 echo   --skip-vnc          Skip VNC Server installation
 echo   --skip-openssh      Skip OpenSSH Server installation
 echo   --skip-firewall     Skip firewall configuration
+echo   --skip-debloat      Skip app debloat and trialware removal
+echo   --skip-nags         Skip nag and ad suppression
 echo   --skip-hardening    Skip system hardening
 echo   --skip-apps         Skip essential app installation
 echo   --skip-chrome       Skip Chrome hardening

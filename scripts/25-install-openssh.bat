@@ -133,7 +133,7 @@ if not "%ADMIN_SSH_PUBKEY%"=="" (
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
         "$ErrorActionPreference='Stop'; " ^
         "$cap = Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH.Server*'; " ^
-        "if ($cap.State -ne 'Installed') { Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 }; " ^
+        "if ((-not (Get-Service sshd -ErrorAction SilentlyContinue)) -and ($cap.State -ne 'Installed')) { Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 }; " ^
         "Start-Service sshd; " ^
         "Set-Service -Name sshd -StartupType Automatic; " ^
         "$fw = Get-NetFirewallRule -Name *ssh* -ErrorAction SilentlyContinue; " ^
@@ -151,12 +151,18 @@ exit /b 0
 :RestrictFirewallRule
 call "%LOG%" info "Restricting SSH firewall rule to Tailscale subnet..."
 
+:: SSH_EXTRA_ALLOW (optional env) appends to the allowed scope - the VM test
+:: harness sets it to the SLIRP gateway (10.0.2.2) so restricting the rule
+:: does not sever the very SSH session driving the provisioning run.
+set "SSH_SCOPE=%TAILSCALE_SUBNET%"
+if defined SSH_EXTRA_ALLOW set "SSH_SCOPE=%TAILSCALE_SUBNET%,%SSH_EXTRA_ALLOW%"
+
 if "%DRY_RUN%"=="1" (
-    echo [DRY-RUN] Would restrict OpenSSH-Server-In-TCP rule to remoteip=%TAILSCALE_SUBNET%
+    echo [DRY-RUN] Would restrict OpenSSH-Server-In-TCP rule to remoteip=%SSH_SCOPE%
     exit /b 0
 )
 
-:: The PS1 creates a rule allowing all profiles. Restrict to Tailscale subnet only.
+:: The PS1 creates a rule allowing all profiles. Restrict to the SSH scope.
 netsh advfirewall firewall show rule name="OpenSSH-Server-In-TCP" >nul 2>&1
 if errorlevel 1 (
     :: PS1 may have created it with a different name — check for sshd rule
@@ -165,22 +171,22 @@ if errorlevel 1 (
         call "%LOG%" warn "No SSH firewall rule found to restrict"
         exit /b 0
     )
-    call "%LOG%" debug "Restricting 'sshd' rule to Tailscale subnet..."
-    netsh advfirewall firewall set rule name="sshd" new remoteip=%TAILSCALE_SUBNET% >nul 2>&1
+    call "%LOG%" debug "Restricting 'sshd' rule to SSH scope..."
+    netsh advfirewall firewall set rule name="sshd" new remoteip=%SSH_SCOPE% >nul 2>&1
     if errorlevel 1 (
         call "%LOG%" warn "Failed to restrict sshd firewall rule"
     ) else (
-        call "%LOG%" success "SSH firewall rule restricted to Tailscale subnet"
+        call "%LOG%" success "SSH firewall rule restricted to: %SSH_SCOPE%"
     )
     exit /b 0
 )
 
-call "%LOG%" debug "Restricting 'OpenSSH-Server-In-TCP' rule to Tailscale subnet..."
-netsh advfirewall firewall set rule name="OpenSSH-Server-In-TCP" new remoteip=%TAILSCALE_SUBNET% >nul 2>&1
+call "%LOG%" debug "Restricting 'OpenSSH-Server-In-TCP' rule to SSH scope..."
+netsh advfirewall firewall set rule name="OpenSSH-Server-In-TCP" new remoteip=%SSH_SCOPE% >nul 2>&1
 if errorlevel 1 (
     call "%LOG%" warn "Failed to restrict OpenSSH-Server-In-TCP firewall rule"
 ) else (
-    call "%LOG%" success "SSH firewall rule restricted to Tailscale subnet"
+    call "%LOG%" success "SSH firewall rule restricted to: %SSH_SCOPE%"
 )
 exit /b 0
 

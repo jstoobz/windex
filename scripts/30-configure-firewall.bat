@@ -160,6 +160,23 @@ if errorlevel 1 (
     exit /b 1
 )
 call "%LOG%" success "Created rule: %FW_RULE_VNC_BLOCK%"
+
+:: Rule 3: SSH locked to the same scope - :RemoveFirewallRules deleted the
+:: SSH rules, so they MUST be re-created here or SSH is left with no allow
+:: rule at all (default inbound block). Only when OpenSSH is present.
+:: SSH_EXTRA_ALLOW (optional env) keeps the VM harness reachable over SLIRP.
+sc query sshd >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    set "SSH_SCOPE=%TAILSCALE_SUBNET%"
+    if defined SSH_EXTRA_ALLOW set "SSH_SCOPE=%TAILSCALE_SUBNET%,!SSH_EXTRA_ALLOW!"
+    call "%LOG%" debug "Creating SSH allow rule scoped to: !SSH_SCOPE!"
+    netsh advfirewall firewall add rule name="OpenSSH-Server-In-TCP" dir=in action=allow protocol=tcp localport=22 remoteip=!SSH_SCOPE! profile=any description="Allow SSH from Tailscale network" enable=yes >nul 2>&1
+    if errorlevel 1 (
+        call "%LOG%" error "Failed to create SSH allow rule"
+        exit /b 1
+    )
+    call "%LOG%" success "Created rule: OpenSSH-Server-In-TCP [scoped]"
+)
 exit /b 0
 
 :EnableFirewallLogging

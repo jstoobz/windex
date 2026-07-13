@@ -233,11 +233,18 @@ call "%LOG%" debug "Enabling unattended mode..."
 "%TAILSCALE_EXE%" set --unattended >nul 2>&1
 
 call "%LOG%" debug "Authenticating with auth key..."
-"%TAILSCALE_EXE%" up --authkey=%TAILSCALE_AUTHKEY% --unattended --timeout=60s
+"%TAILSCALE_EXE%" up --authkey=%TAILSCALE_AUTHKEY% --unattended --timeout=180s
 if errorlevel 1 (
-    call "%LOG%" error "Failed to connect to Tailscale"
-    call "%LOG%" error "Check that your auth key is valid and not expired"
-    exit /b 1
+    rem The CLI can report a timeout while registration completes in the
+    rem background moments later - an assigned IP means we actually connected
+    ping -n 16 127.0.0.1 >nul
+    for /f "tokens=*" %%I in ('"%TAILSCALE_EXE%" ip -4 2^>nul') do set "TS_LATE_IP=%%I"
+    if not defined TS_LATE_IP (
+        call "%LOG%" error "Failed to connect to Tailscale"
+        call "%LOG%" error "Check that your auth key is valid and not expired"
+        exit /b 1
+    )
+    call "%LOG%" warn "tailscale up reported a timeout but the connection completed in the background"
 )
 
 ping -n 6 127.0.0.1 >nul
@@ -271,18 +278,23 @@ if errorlevel 1 (
 )
 call "%LOG%" debug "Service running: OK"
 
-"%TAILSCALE_EXE%" status >nul 2>&1
-if errorlevel 1 (
+:: 'tailscale status' exits non-zero while the backend settles from Starting
+:: to Running right after first login, even with an IP already assigned. The
+:: assigned IP is the real connectivity signal - give it a short grace window.
+set "VERIFY_WAIT=0"
+:VerifyConnectLoop
+for /f "tokens=*" %%I in ('"%TAILSCALE_EXE%" ip -4 2^>nul') do set "TAILSCALE_IP=%%I"
+if defined TAILSCALE_IP goto :VerifyConnected
+set /a "VERIFY_WAIT+=1"
+if %VERIFY_WAIT% GTR 10 (
     call "%LOG%" error "Tailscale is not connected"
     exit /b 1
 )
-call "%LOG%" debug "Connection status: OK"
+ping -n 4 127.0.0.1 >nul
+goto :VerifyConnectLoop
 
-for /f "tokens=*" %%I in ('"%TAILSCALE_EXE%" ip -4 2^>nul') do set "TAILSCALE_IP=%%I"
-if defined TAILSCALE_IP (
-    call "%LOG%" info "Tailscale IP: %TAILSCALE_IP%"
-)
-
+:VerifyConnected
+call "%LOG%" info "Tailscale IP: %TAILSCALE_IP%"
 call "%LOG%" success "Tailscale verification passed"
 exit /b 0
 

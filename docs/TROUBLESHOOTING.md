@@ -224,6 +224,37 @@ sc config Tailscale start= auto
 sc config tvnserver start= auto
 ```
 
+### OpenSSH Issues
+
+#### "SSH stopped working after a Windows feature update"
+
+**Cause:** Feature updates (e.g., 24H2 → 25H2) can strip the OpenSSH Server
+capability, reset the sshd service start-type, or reset the firewall rule back
+to Private-profile-only. Confirmed live on the 25H2 update.
+
+**Solution:** Run in an elevated PowerShell at the machine (all three failure
+modes covered; safe to run even if only one applies):
+
+```powershell
+if (-not (Get-Service sshd -ErrorAction SilentlyContinue)) { Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 }
+Set-Service sshd -StartupType Automatic
+Start-Service sshd
+if (Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -ErrorAction SilentlyContinue) {
+  Set-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -Profile Any -Enabled True
+} else {
+  New-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -DisplayName "OpenSSH Server (sshd)" -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 -Profile Any
+}
+Get-Service sshd
+```
+
+Notes:
+- `-Profile Any` matters: networks the machine classifies as Public (including
+  UTM's emulated/SLIRP network) block the default Private-only rule.
+- `administrators_authorized_keys` in `C:\ProgramData\ssh\` survives feature
+  updates — keys do not need to be re-provisioned.
+- Re-running `25-install-openssh.bat --force` accomplishes the same repair via
+  the suite.
+
 ### Installation Issues
 
 #### "Download failed"

@@ -102,9 +102,18 @@ Wait-ForCondition {
 Write-Ok "Service running"
 
 & $TailscaleExe set --unattended 2>$null
-& $TailscaleExe up --authkey=$TailscaleAuthKey --unattended --timeout=60s
+# 180s: first-run backend init is slow on fresh installs; the CLI can also
+# report a timeout while registration completes in the background - an
+# assigned IP means we actually connected
+& $TailscaleExe up --authkey=$TailscaleAuthKey --unattended --timeout=180s
 if ($LASTEXITCODE -ne 0) {
-    throw "Tailscale authentication failed - check your auth key"
+    Start-Sleep -Seconds 15
+    $lateIp = & $TailscaleExe ip -4 2>$null
+    if ($lateIp) {
+        Write-Warn "tailscale up reported a timeout but the connection completed in the background"
+    } else {
+        throw "Tailscale authentication failed - check your auth key"
+    }
 }
 
 Start-Sleep -Seconds 3

@@ -10,16 +10,23 @@ Installs and configures remote access, security hardening, and essential apps on
 |------|--------|-------------|
 | 1 | `10-install-tailscale.bat` | Tailscale VPN for remote access |
 | 2 | `20-install-tightvnc.bat` | TigerVNC server (screen sharing) |
-| 3 | `30-configure-firewall.bat` | Lock VNC to Tailscale subnet only |
-| 4 | `40-harden-system.bat` | Disable remote desktop, guest account, etc. |
-| 5 | `45-configure-power.bat` | Prevent sleep, manage Windows Update |
-| 6 | `60-install-apps.bat` | Chrome, iTunes, Malwarebytes |
-| 7 | `65-configure-dns.bat` | Cloudflare Family DNS (malware/phishing filtering) |
-| 8 | `70-harden-chrome.bat` | Safe browsing, uBlock Origin, disable dev tools |
-| 9 | `75-customize-desktop.bat` | Clean up Start menu and taskbar |
-| 10 | `80-create-standard-user.bat` | Non-admin daily-use account |
-| 11 | `50-configure-services.bat` | Auto-start Tailscale and VNC |
-| 12 | `90-verify-setup.bat` | Verify everything is working |
+| 3 | `25-install-openssh.bat` | OpenSSH Server for remote administration |
+| 4 | `30-configure-firewall.bat` | Lock VNC to Tailscale subnet only |
+| 5 | `35-debloat-apps.bat` | Remove bloatware apps, OneDrive, OEM/AV trialware |
+| 6 | `37-suppress-nags.bat` | Silence Windows ads, tips, and upsell nags |
+| 7 | `40-harden-system.bat` | Disable remote desktop, guest account, telemetry, etc. |
+| 8 | `45-configure-power.bat` | Prevent sleep, manage Windows Update |
+| 9 | `60-install-apps.bat` | Chrome, iTunes, Malwarebytes |
+| 10 | `65-configure-dns.bat` | Cloudflare Family DNS (malware/phishing filtering) |
+| 11 | `70-harden-chrome.bat` | Safe browsing, uBlock Origin, disable dev tools |
+| 12 | `75-customize-desktop.bat` | Desktop shortcuts for daily-use apps |
+| 13 | `80-create-standard-user.bat` | Non-admin daily-use account |
+| 14 | `50-configure-services.bat` | Auto-start Tailscale and VNC |
+| 15 | `90-verify-setup.bat` | Verify everything is working |
+
+> **Note:** App debloat (step 5) is not reversible by `99-rollback.bat` — removed
+> apps come back via the Microsoft Store. Skip it with `--skip-debloat` if the
+> target machine's apps should be left alone.
 
 ## Quick Start
 
@@ -126,7 +133,7 @@ Skip any step with flags:
 00-setup-master.bat --force --skip-vnc --skip-apps --skip-dns
 ```
 
-All flags: `--skip-tailscale`, `--skip-vnc`, `--skip-firewall`, `--skip-hardening`, `--skip-power`, `--skip-apps`, `--skip-dns`, `--skip-chrome`, `--skip-desktop`, `--skip-user`
+All flags: `--skip-tailscale`, `--skip-vnc`, `--skip-openssh`, `--skip-firewall`, `--skip-debloat`, `--skip-nags`, `--skip-hardening`, `--skip-power`, `--skip-apps`, `--skip-dns`, `--skip-chrome`, `--skip-desktop`, `--skip-user`
 
 ### Password Restrictions
 
@@ -167,6 +174,14 @@ If something goes wrong, undo everything:
 
 ```cmd
 C:\provision\scripts\99-rollback.bat
+```
+
+## Compatibility
+
+Windows 11, ARM64 and x64.
+
+```csharp
+if (version.StartsWith("Windows 9")) { return; }  // carrying on the tradition
 ```
 
 ## License
