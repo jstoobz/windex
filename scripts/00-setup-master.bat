@@ -127,7 +127,7 @@ call "%ADMIN%"
 if errorlevel 1 (
     call "%LOG%" error "Administrator privileges required"
     call "%LOG%" info "Please right-click and select 'Run as administrator'"
-    pause
+    if not "%FORCE%"=="1" pause
     exit /b %EXIT_PREREQ_FAILED%
 )
 
@@ -144,7 +144,7 @@ if "%TAILSCALE_AUTHKEY%"=="" (
         echo For a dry-run without auth key:
         echo   %~nx0 --dry-run
         echo.
-        pause
+        if not "%FORCE%"=="1" pause
         exit /b %EXIT_PREREQ_FAILED%
     )
 )
@@ -515,7 +515,7 @@ if %STEPS_FAILED% EQU 0 (
     echo.
 )
 
-pause
+if not "%FORCE%"=="1" pause
 goto :eof
 
 :ShowHelp

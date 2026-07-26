@@ -150,7 +150,31 @@ if [[ "$vm_status" == "started" ]]; then
 fi
 
 trap cleanup EXIT
+
+# Launch UTM via LaunchServices before utmctl touches it. If utmctl's
+# AppleEvent is what launches the app, UTM comes up window-less and VM
+# starts hang forever (AE timeout -1712) while status/list still work.
+open -g -a UTM
+sleep 2
+
 utmctl start --disposable "$VM_NAME"
+
+# utmctl exits 0 even when the start fails. Verify the VM actually
+# reached "started" before burning MAX_WAIT polling SSH.
+vm_started=false
+for _ in 1 2 3 4 5 6; do
+    if [[ "$(utmctl status "$VM_NAME" 2> /dev/null)" == "started" ]]; then
+        vm_started=true
+        break
+    fi
+    sleep 5
+done
+if ! $vm_started; then
+    log "FAIL: VM never reached 'started' (status: $(utmctl status "$VM_NAME" 2>&1))"
+    log "  If 'OSStatus error -1712' appeared above, UTM is running window-less"
+    log "  (auto-launched by a prior utmctl call): quit UTM, reopen it, re-run."
+    exit 1
+fi
 
 # ── Step 2: Wait for SSH ─────────────────────────────────────────
 log "Waiting for SSH..."
@@ -171,6 +195,15 @@ if ! $ssh_ready; then
     exit 1
 fi
 log "SSH ready (${elapsed}s)"
+
+# ── Step 2b: Disable guest IPv6 ──────────────────────────────────
+# UTM's bundled libslirp fatally asserts ("sbappend: n_sent > m->m_len")
+# on IPv6 TCP through the emulated NIC, aborting QEMU ~40min into a run.
+# No guest IPv6 -> ip6_input never reaches the crash path. VM-only
+# mitigation: real hardware keeps IPv6.
+log "Disabling guest IPv6 (libslirp sbappend crash mitigation)..."
+ssh_cmd "powershell -NoProfile -Command \"Disable-NetAdapterBinding -Name '*' -ComponentID ms_tcpip6\"" \
+    > /dev/null 2>&1 || log "WARN: IPv6 disable failed - QEMU may crash after ~40min"
 
 # ── Step 3: Create target directories on guest ───────────────────
 log "Creating directories on guest..."

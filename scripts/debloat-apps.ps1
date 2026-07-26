@@ -215,12 +215,17 @@ function Remove-OneDrive {
     )
     $found = $setups | Where-Object { Test-Path $_ }
 
-    if (-not $found) {
+    # 25H2 ships OneDrive per-machine under Program Files with its own setup
+    # exe; the per-user binaries above leave it (and every new profile) intact
+    $machineFound = Get-ChildItem -Path (Join-Path $env:ProgramFiles 'Microsoft OneDrive') `
+        -Filter 'OneDriveSetup.exe' -Recurse -File -ErrorAction SilentlyContinue
+
+    if (-not $found -and -not $machineFound) {
         Log 'INFO' 'OneDrive setup binary not found - nothing to remove'
         return
     }
     if ($DryRun) {
-        Log 'DRYRUN' 'Would uninstall OneDrive and unpin it from the Explorer nav pane'
+        Log 'DRYRUN' 'Would uninstall OneDrive (per-user and per-machine) and unpin it from the Explorer nav pane'
         return
     }
 
@@ -228,6 +233,11 @@ function Remove-OneDrive {
     foreach ($setup in $found) {
         Start-Process -FilePath $setup -ArgumentList '/uninstall' -Wait -ErrorAction SilentlyContinue
     }
+    foreach ($setup in $machineFound) {
+        Start-Process -FilePath $setup.FullName -ArgumentList '/uninstall', '/allusers' -Wait -ErrorAction SilentlyContinue
+    }
+    Remove-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' `
+        -Name 'OneDrive' -ErrorAction SilentlyContinue
 
     # Unpin from Explorer nav pane (keys may not exist post-uninstall; best-effort)
     foreach ($clsid in @(
