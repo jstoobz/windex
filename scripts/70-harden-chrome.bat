@@ -92,18 +92,18 @@ set "UBLOCK_VALUE=%EXT_UBLOCK%;https://clients2.google.com/service/update2/crx"
 
 if "%DRY_RUN%"=="1" (
     echo [DRY-RUN] Would create registry key: %EXT_KEY%
-    echo [DRY-RUN] Would add extension: uBlock Origin %EXT_UBLOCK%
+    echo [DRY-RUN] Would add extension: uBlock Origin Lite %EXT_UBLOCK%
     echo [DRY-RUN]   reg add "%EXT_KEY%" /v "1" /t REG_SZ /d "%UBLOCK_VALUE%" /f
     exit /b 0
 )
 
 reg add "%EXT_KEY%" /v "1" /t REG_SZ /d "%UBLOCK_VALUE%" /f >nul 2>&1
 if errorlevel 1 (
-    call "%LOG%" error "Failed to add uBlock Origin to force-install list"
+    call "%LOG%" error "Failed to add uBlock Origin Lite to force-install list"
     exit /b 1
 )
 
-call "%LOG%" success "uBlock Origin added to force-install list"
+call "%LOG%" success "uBlock Origin Lite added to force-install list"
 exit /b 0
 
 :: ============================================================================

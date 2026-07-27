@@ -310,9 +310,9 @@ echo Verifying Chrome Policies...
 set /a "TOTAL_CHECKS+=1"
 reg query "HKLM\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist" /v "1" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    call :CheckPass "uBlock Origin force-install key exists"
+    call :CheckPass "uBlock Origin Lite force-install key exists"
 ) else (
-    call :CheckFail "uBlock Origin force-install key not found"
+    call :CheckFail "uBlock Origin Lite force-install key not found"
 )
 
 :: Check Safe Browsing

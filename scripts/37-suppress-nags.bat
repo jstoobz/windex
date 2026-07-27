@@ -80,6 +80,9 @@ if errorlevel 1 set /a "NAG_ERRORS+=1"
 call :SeedDefaultHive
 if errorlevel 1 set /a "NAG_ERRORS+=1"
 
+call :SeedStartLayout
+if errorlevel 1 set /a "NAG_ERRORS+=1"
+
 :: No marker on partial success - a failed Default-hive seed must be
 :: retried on the next run or new profiles inherit the nags silently.
 if %NAG_ERRORS% GTR 0 (
@@ -248,6 +251,11 @@ set "EXP_ADV=%ROOT%\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
 reg add "%EXP_ADV%" /v "ShowSyncProviderNotifications" /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "%EXP_ADV%" /v "Start_IrisRecommendations" /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "%EXP_ADV%" /v "Start_AccountNotifications" /t REG_DWORD /d 0 /f >nul 2>&1
+
+:: OneDrive residue for this user: kill the first-logon setup trigger and
+:: the orphaned Explorer nav-pane entry (step 35 removes the app itself)
+reg delete "%ROOT%\Software\Microsoft\Windows\CurrentVersion\Run" /v "OneDriveSetup" /f >nul 2>&1
+reg add "%ROOT%\Software\Classes\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}" /v "System.IsPinnedToNameSpaceTree" /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "%EXP_ADV%" /v "TaskbarMn" /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "%EXP_ADV%" /v "ShowCopilotButton" /t REG_DWORD /d 0 /f >nul 2>&1
 
@@ -277,6 +285,45 @@ if "%DRY_RUN%"=="1" (
 )
 reg add "%SETUP_REG_KEY%" /v "NagsSuppressed" /t REG_SZ /d "1" /f >nul 2>&1
 reg add "%SETUP_REG_KEY%" /v "NagsSuppressedDate" /t REG_SZ /d "%DATE% %TIME%" /f >nul 2>&1
+exit /b 0
+
+:: ============================================================================
+:: DEFAULT START-MENU PIN LAYOUT (new profiles only)
+:: ============================================================================
+:: Replaces the promo pins (Solitaire/WhatsApp/LinkedIn/Xbox/Outlook) with a
+:: curated list for profiles created after this step. Existing profiles keep
+:: their start2.bin - unpin manually there. Delayed expansion is disabled so
+:: the ! in packaged-app AUMIDs survives the echo.
+
+:SeedStartLayout
+call "%LOG%" info "Seeding default Start-menu pin layout for new profiles..."
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would write LayoutModification.json to the Default profile
+    exit /b 0
+)
+
+setlocal DisableDelayedExpansion
+set "LAYOUT_DIR=%SystemDrive%\Users\Default\AppData\Local\Microsoft\Windows\Shell"
+if not exist "%LAYOUT_DIR%" mkdir "%LAYOUT_DIR%" >nul 2>&1
+set "CHROME_LNK=%ALLUSERSPROFILE:\=\\%\\Microsoft\\Windows\\Start Menu\\Programs\\Google Chrome.lnk"
+(
+    echo {
+    echo   "pinnedList": [
+    echo     { "desktopAppLink": "%CHROME_LNK%" },
+    echo     { "packagedAppId": "windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel" },
+    echo     { "packagedAppId": "Microsoft.WindowsStore_8wekyb3d8bbwe!App" },
+    echo     { "packagedAppId": "Microsoft.Windows.Photos_8wekyb3d8bbwe!App" },
+    echo     { "packagedAppId": "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App" },
+    echo     { "packagedAppId": "Microsoft.WindowsNotepad_8wekyb3d8bbwe!App" },
+    echo     { "packagedAppId": "Microsoft.ScreenSketch_8wekyb3d8bbwe!App" },
+    echo     { "packagedAppId": "Microsoft.Paint_8wekyb3d8bbwe!App" },
+    echo     { "packagedAppId": "Microsoft.WindowsAlarms_8wekyb3d8bbwe!App" }
+    echo   ]
+    echo }
+) > "%LAYOUT_DIR%\LayoutModification.json"
+endlocal
+
+call "%LOG%" success "Default Start layout seeded"
 exit /b 0
 
 :: ============================================================================

@@ -108,6 +108,12 @@ run_id=$(date +%Y%m%d_%H%M%S)
 run_dir="$RESULTS_DIR/$run_id"
 mkdir -p "$run_dir"
 
+# Mirror all harness output into the run dir from the first line, and keep
+# a stable pointer to the current run so any terminal can follow along:
+#   tail -f test-results/latest/harness.log
+exec > >(tee "$run_dir/harness.log") 2>&1
+ln -sfn "$run_dir" "$RESULTS_DIR/latest"
+
 cleanup() {
     if $KEEP_RUNNING; then
         log "VM left running (--keep-running). Stop manually with:"
@@ -157,23 +163,42 @@ trap cleanup EXIT
 open -g -a UTM
 sleep 2
 
-utmctl start --disposable "$VM_NAME"
-
 # utmctl exits 0 even when the start fails. Verify the VM actually
 # reached "started" before burning MAX_WAIT polling SSH.
-vm_started=false
-for _ in 1 2 3 4 5 6; do
-    if [[ "$(utmctl status "$VM_NAME" 2> /dev/null)" == "started" ]]; then
-        vm_started=true
-        break
+start_vm_disposable() {
+    utmctl start --disposable "$VM_NAME"
+    for _ in 1 2 3 4 5 6; do
+        if [[ "$(utmctl status "$VM_NAME" 2> /dev/null)" == "started" ]]; then
+            return 0
+        fi
+        sleep 5
+    done
+    return 1
+}
+
+if ! start_vm_disposable; then
+    # A wedged UTM instance (window-less or hidden, typically one auto-
+    # launched by a prior utmctl call) times out the start AppleEvent
+    # (-1712) while status/list still answer. Recycle the app once and
+    # retry - but only when no VM is running anywhere, since quitting
+    # UTM kills every guest.
+    if ! pgrep -qf QEMULauncher; then
+        log "VM failed to start - recycling wedged UTM and retrying once..."
+        osascript -e 'tell application "UTM" to quit' 2> /dev/null || true
+        sleep 3
+        open -a UTM
+        sleep 5
+        start_vm_disposable || {
+            log "FAIL: VM never reached 'started' even after a UTM recycle"
+            log "  (status: $(utmctl status "$VM_NAME" 2>&1)) - inspect UTM manually."
+            exit 1
+        }
+    else
+        log "FAIL: VM never reached 'started' (status: $(utmctl status "$VM_NAME" 2>&1))"
+        log "  Another VM is running, so not recycling UTM. Quit UTM manually"
+        log "  (after stopping other guests) and re-run."
+        exit 1
     fi
-    sleep 5
-done
-if ! $vm_started; then
-    log "FAIL: VM never reached 'started' (status: $(utmctl status "$VM_NAME" 2>&1))"
-    log "  If 'OSStatus error -1712' appeared above, UTM is running window-less"
-    log "  (auto-launched by a prior utmctl call): quit UTM, reopen it, re-run."
-    exit 1
 fi
 
 # ── Step 2: Wait for SSH ─────────────────────────────────────────

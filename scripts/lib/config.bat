@@ -113,7 +113,7 @@ set "RUFUS_EXE=%ProgramFiles%\WinGet\Links\rufus.exe"
 set "RUFUS_SHORTCUT=%ProgramData%\Microsoft\Windows\Start Menu\Programs\Rufus.lnk"
 
 :: CHROME EXTENSIONS (Chrome Web Store IDs)
-set "EXT_UBLOCK=cjpalhdlnbpafiamejdnhcphjbkeiagm"
+set "EXT_UBLOCK=ddkjiahejlhfcafbddmgiahcphecmpfh"
 
 :: ============================================================================
 :: DNS CONFIGURATION
