@@ -174,16 +174,19 @@ winget install TigerVNC.TigerVNC --silent --accept-package-agreements --accept-s
 :: Winget's package silently installs viewer-only (no component switches
 :: passed to the underlying Inno Setup installer) -- fall back to the
 :: dedicated server installer direct from SourceForge.
+:: NB: !delayed! expansion is required here — VNC_WINVNC_SETUP is set and
+:: consumed inside this block; %-form expands to empty at parse time (an
+:: empty del target resolves to the CURRENT DIRECTORY and prompts to wipe it)
 if not exist "%VNC_DIR%\winvnc4.exe" (
     call "%LOG%" info "Winget install produced viewer only, downloading TigerVNC server installer directly..."
     set "VNC_WINVNC_SETUP=%TEMP%\tigervnc-winvnc.exe"
-    powershell -NoProfile -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri '%TIGERVNC_WINVNC_URL%' -OutFile '%VNC_WINVNC_SETUP%' -UseBasicParsing"
+    powershell -NoProfile -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri '%TIGERVNC_WINVNC_URL%' -OutFile '!VNC_WINVNC_SETUP!' -UseBasicParsing"
     if errorlevel 1 (
         call "%LOG%" error "Failed to download TigerVNC server installer"
         exit /b 1
     )
-    "%VNC_WINVNC_SETUP%" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
-    del "%VNC_WINVNC_SETUP%" 2>nul
+    "!VNC_WINVNC_SETUP!" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+    if defined VNC_WINVNC_SETUP del "!VNC_WINVNC_SETUP!" 2>nul
 )
 
 :: Verify executable exists
@@ -240,8 +243,8 @@ powershell -NoProfile -Command ^
     "$d.Mode = 'ECB'; $d.Padding = 'None'; $d.Key = $k; " ^
     "$e = $d.CreateEncryptor().TransformFinalBlock($pb,0,8); " ^
     "$hex = -join ($e | ForEach-Object { '{0:x2}' -f $_ }); " ^
-    "reg add 'HKLM\SOFTWARE\TigerVNC\Server' /v Password /t REG_BINARY /d $hex /f | Out-Null; " ^
-    "reg add 'HKLM\SOFTWARE\TigerVNC\Server' /v ControlPassword /t REG_BINARY /d $hex /f | Out-Null"
+    "reg add 'HKLM\SOFTWARE\TigerVNC\WinVNC4' /v Password /t REG_BINARY /d $hex /f | Out-Null; " ^
+    "reg add 'HKLM\SOFTWARE\TigerVNC\WinVNC4' /v ControlPassword /t REG_BINARY /d $hex /f | Out-Null"
 
 if errorlevel 1 (
     call "%LOG%" error "Failed to set VNC password"
@@ -249,9 +252,9 @@ if errorlevel 1 (
 )
 
 :: Configure additional server settings
-reg add "HKLM\SOFTWARE\TigerVNC\Server" /v SecurityTypes /t REG_SZ /d "VncAuth" /f >nul 2>&1
-reg add "HKLM\SOFTWARE\TigerVNC\Server" /v PortNumber /t REG_DWORD /d %VNC_PORT% /f >nul 2>&1
-reg add "HKLM\SOFTWARE\TigerVNC\Server" /v AllowLoopback /t REG_DWORD /d 1 /f >nul 2>&1
+reg add "HKLM\SOFTWARE\TigerVNC\WinVNC4" /v SecurityTypes /t REG_SZ /d "VncAuth" /f >nul 2>&1
+reg add "HKLM\SOFTWARE\TigerVNC\WinVNC4" /v PortNumber /t REG_DWORD /d %VNC_PORT% /f >nul 2>&1
+reg add "HKLM\SOFTWARE\TigerVNC\WinVNC4" /v AllowLoopback /t REG_DWORD /d 1 /f >nul 2>&1
 
 :: Restart service to pick up new configuration
 net stop %VNC_SERVICE% >nul 2>&1

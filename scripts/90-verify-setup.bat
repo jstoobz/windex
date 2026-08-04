@@ -113,6 +113,17 @@ if defined TAILSCALE_IP (
     call :CheckFail "Tailscale IP not assigned"
 )
 
+:: Check 5: machine is approved. Device approval leaves an enrolled node WITH
+:: an IP but a blocked data plane, so the IP check above cannot catch it -
+:: status reports the pending state in its health output.
+set /a "TOTAL_CHECKS+=1"
+"%TAILSCALE_EXE%" status 2>&1 | findstr /i /c:"not yet approved" /c:"awaiting approval" /c:"To approve" >nul 2>&1
+if not errorlevel 1 (
+    call :CheckFail "Tailscale machine awaiting admin approval - data plane blocked"
+) else (
+    call :CheckPass "Tailscale machine is approved"
+)
+
 :VerifyTailscaleDone
 goto :eof
 
@@ -286,15 +297,16 @@ if exist "%ITUNES_EXE%" (
     call :CheckFail "Apple iTunes not found"
 )
 
-:: Check Malwarebytes (may not be available on ARM64 via winget)
+:: Check Malwarebytes (ARM64 installs via the evergreen direct installer;
+:: kept a WARN there until that path has a validated pass)
 set /a "TOTAL_CHECKS+=1"
 if exist "%MALWAREBYTES_EXE%" (
     call :CheckPass "Malwarebytes is installed"
 ) else (
-    :: Check if ARM64 — Malwarebytes winget package may not support it
+    rem ARM64 - evergreen fallback attempted; tolerate failure as manual-install
     powershell -NoProfile -Command "if ((Get-CimInstance Win32_Processor).Architecture -eq 12) { exit 1 }" >nul 2>&1
     if errorlevel 1 (
-        call :CheckWarn "Malwarebytes not found - install manually on ARM64"
+        call :CheckWarn "Malwarebytes not found - evergreen installer failed, install manually"
     ) else (
         call :CheckFail "Malwarebytes not found"
     )

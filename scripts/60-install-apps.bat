@@ -189,11 +189,12 @@ if exist "%MALWAREBYTES_EXE%" (
     exit /b 0
 )
 
-:: Skip on ARM64 — winget package unavailable (exit code 200), direct installer untested
+:: winget package is x64-only (exit code 200 on ARM64) — go straight to the
+:: evergreen direct installer there; MB5 setup is ARM64-aware
 powershell -NoProfile -Command "if ((Get-CimInstance Win32_Processor).Architecture -eq 12) { exit 1 }" >nul 2>&1
 if errorlevel 1 (
-    call "%LOG%" warn "Malwarebytes ARM64 not available via winget — install manually from malwarebytes.com"
-    exit /b 0
+    call "%LOG%" info "ARM64 detected — winget package is x64-only, using direct installer"
+    goto :MalwarebytesDirect
 )
 
 if "%DRY_RUN%"=="1" (
@@ -211,7 +212,14 @@ if exist "%MALWAREBYTES_EXE%" (
 )
 
 :: Winget failed — fall back to direct download
-call "%LOG%" info "Winget install failed, downloading Malwarebytes directly..."
+call "%LOG%" info "Winget install failed, falling back to direct download..."
+
+:MalwarebytesDirect
+if "%DRY_RUN%"=="1" (
+    echo [DRY-RUN] Would download and run Malwarebytes evergreen installer
+    exit /b 0
+)
+call "%LOG%" info "Downloading Malwarebytes evergreen installer..."
 set "MB_SETUP=%TEMP%\MBSetup.exe"
 powershell -NoProfile -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri '%MALWAREBYTES_URL%' -OutFile '%MB_SETUP%' -UseBasicParsing"
 if errorlevel 1 (

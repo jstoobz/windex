@@ -22,9 +22,9 @@ $ErrorActionPreference = 'Stop'
 $TailscaleUrl      = if ($env:TAILSCALE_URL)      { $env:TAILSCALE_URL }      else { 'https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe' }
 $TailscaleDir      = if ($env:TAILSCALE_DIR)       { $env:TAILSCALE_DIR }      else { 'C:\Program Files\Tailscale' }
 $TailscaleExe      = "$TailscaleDir\tailscale.exe"
-$VncDir            = if ($env:VNC_DIR)              { $env:VNC_DIR }            else { 'C:\Program Files\TigerVNC' }
-$VncService        = if ($env:VNC_SERVICE)          { $env:VNC_SERVICE }        else { 'winvnc4' }
-$TigerVncWinvncUrl = if ($env:TIGERVNC_WINVNC_URL)  { $env:TIGERVNC_WINVNC_URL } else { 'https://downloads.sourceforge.net/project/tigervnc/stable/1.16.2/tigervnc64-winvnc-1.16.2.exe' }
+$VncDir            = if ($env:VNC_DIR)              { $env:VNC_DIR }            else { 'C:\Program Files\TigerVNC server' }
+$VncService        = if ($env:VNC_SERVICE)          { $env:VNC_SERVICE }        else { 'TigerVNC' }
+$TigerVncWinvncUrl = if ($env:TIGERVNC_WINVNC_URL)  { $env:TIGERVNC_WINVNC_URL } else { 'https://github.com/jstoobz/windex/releases/download/payloads-v1/tigervnc64-winvnc-1.16.2.exe' }
 $VncPort           = if ($env:VNC_PORT)             { [int]$env:VNC_PORT }      else { 5900 }
 $TailscaleSubnet   = if ($env:TAILSCALE_SUBNET)    { $env:TAILSCALE_SUBNET }   else { '100.64.0.0/10' }
 $VncPasswordLength = if ($env:VNC_PASSWORD_LENGTH)  { [int]$env:VNC_PASSWORD_LENGTH } else { 16 }
@@ -160,11 +160,11 @@ $des.Mode = 'ECB'; $des.Padding = 'None'; $des.Key = $desKey
 $encrypted = $des.CreateEncryptor().TransformFinalBlock($pwBytes, 0, 8)
 $hexPw = -join ($encrypted | ForEach-Object { '{0:x2}' -f $_ })
 
-reg add 'HKLM\SOFTWARE\TigerVNC\Server' /v Password /t REG_BINARY /d $hexPw /f | Out-Null
-reg add 'HKLM\SOFTWARE\TigerVNC\Server' /v ControlPassword /t REG_BINARY /d $hexPw /f | Out-Null
-reg add 'HKLM\SOFTWARE\TigerVNC\Server' /v SecurityTypes /t REG_SZ /d 'VncAuth' /f | Out-Null
-reg add 'HKLM\SOFTWARE\TigerVNC\Server' /v PortNumber /t REG_DWORD /d $VncPort /f | Out-Null
-reg add 'HKLM\SOFTWARE\TigerVNC\Server' /v AllowLoopback /t REG_DWORD /d 1 /f | Out-Null
+reg add 'HKLM\SOFTWARE\TigerVNC\WinVNC4' /v Password /t REG_BINARY /d $hexPw /f | Out-Null
+reg add 'HKLM\SOFTWARE\TigerVNC\WinVNC4' /v ControlPassword /t REG_BINARY /d $hexPw /f | Out-Null
+reg add 'HKLM\SOFTWARE\TigerVNC\WinVNC4' /v SecurityTypes /t REG_SZ /d 'VncAuth' /f | Out-Null
+reg add 'HKLM\SOFTWARE\TigerVNC\WinVNC4' /v PortNumber /t REG_DWORD /d $VncPort /f | Out-Null
+reg add 'HKLM\SOFTWARE\TigerVNC\WinVNC4' /v AllowLoopback /t REG_DWORD /d 1 /f | Out-Null
 
 # Ensure service is registered and running
 if (-not (Get-Service $VncService -ErrorAction SilentlyContinue)) {
