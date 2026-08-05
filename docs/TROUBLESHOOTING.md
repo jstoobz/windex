@@ -129,7 +129,51 @@ set TAILSCALE_AUTHKEY=tskey-auth-YOUR-KEY
 **Solutions:**
 
 1. Check credentials file: `output\credentials.txt`
-2. If file is missing, password may need to be reset via TightVNC settings
+2. If the file is missing, recover the password from the registry (below)
+   rather than resetting it
+
+**Note:** RFB's VncAuth truncates passwords to **8 characters**. A 16-character
+generated password authenticates on its first 8 bytes; viewers truncate the
+same way, so pasting the full string also works.
+
+#### "Lost the VNC password"
+
+**Cause:** `output\credentials.txt` was deleted, or a run ended before the
+closing banner printed — the firewall step re-scopes sshd to the tailnet and
+severs any SSH session that arrived over a different path, taking the banner's
+output with it.
+
+The password is recoverable. VNC servers store it under a **fixed, publicly
+known DES key** — obfuscation, not encryption — so decrypting is symmetric.
+
+**1. Read the stored blob on the Windows machine** (8 bytes, one DES block):
+
+```powershell
+(Get-ItemProperty 'HKLM:\SOFTWARE\TigerVNC\WinVNC4' -Name Password).Password |
+    ForEach-Object { '{0:x2}' -f $_ }
+```
+
+`winvnc4.exe` reads only `HKLM\SOFTWARE\TigerVNC\WinVNC4`. Older windex builds
+wrote to `TigerVNC\Server`, which nothing reads — check both if the first is
+empty.
+
+**2. Decrypt on macOS** with the fixed VNC key `e84ad660c4721ae0`:
+
+```bash
+printf '<HEXBLOB>' | xxd -r -p | \
+  /opt/homebrew/opt/openssl@3/bin/openssl enc -d -des-ecb \
+    -provider legacy -provider default -K e84ad660c4721ae0 -nopad
+```
+
+macOS ships LibreSSL as `openssl`, which removed DES entirely — use Homebrew's
+`openssl@3` with the legacy provider. On Linux, plain `openssl` with
+`-provider legacy` works.
+
+The output is the 8 significant characters of the password.
+
+**After any session:** save the password to a password manager, then delete
+`output\credentials.txt`. Deletion is a deliberate operator step — no timer or
+scheduled task, which a Windows update can outlive or disarm.
 
 ### Firewall Issues
 
