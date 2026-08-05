@@ -32,6 +32,10 @@ Installs and configures remote access, security hardening, and essential apps on
 
 Pick a method. All three produce the same result.
 
+Deploying to a machine that is **already in daily use** — existing profiles,
+existing software, and an existing way you reach it remotely — is a different
+job with an order that matters. Follow [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ### Method 1: USB Drive
 
 Build a bootable USB on macOS, plug it in, double-click.
@@ -156,7 +160,7 @@ windex/
 ├── utm-bundle.sh               # Build a provisioning USB drive
 ├── utm-test.sh                 # Test suite (runs in UTM VM)
 ├── utm.conf                    # Shared shell config
-└── docs/                       # Architecture, security, troubleshooting
+└── docs/                       # Deployment, architecture, security, troubleshooting
 ```
 
 ## Testing
