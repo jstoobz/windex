@@ -182,22 +182,23 @@ if %ERRORLEVEL% EQU 0 (
     call :CheckFail "Windows Firewall is disabled"
 )
 
-:: Check 2: VNC allow rule exists
+:: Check 2: VNC allow rule exists and is scoped to the tailnet
 set /a "TOTAL_CHECKS+=1"
-netsh advfirewall firewall show rule name="%FW_RULE_VNC_ALLOW%" >nul 2>&1
+netsh advfirewall firewall show rule name="%FW_RULE_VNC_ALLOW%" | findstr /i "%TAILSCALE_SUBNET%" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    call :CheckPass "VNC allow rule exists"
+    call :CheckPass "VNC allow rule scoped to %TAILSCALE_SUBNET%"
 ) else (
-    call :CheckFail "VNC allow rule not found"
+    call :CheckFail "VNC allow rule missing or not scoped to Tailscale subnet"
 )
 
-:: Check 3: VNC block rule exists
+:: Check 3: no catch-all block rule. Windows evaluates block before allow, so
+:: an any-source block on the VNC port makes the tailnet path unreachable.
 set /a "TOTAL_CHECKS+=1"
 netsh advfirewall firewall show rule name="%FW_RULE_VNC_BLOCK%" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    call :CheckPass "VNC block rule exists"
+    call :CheckFail "Legacy %FW_RULE_VNC_BLOCK% rule present - blocks Tailscale VNC"
 ) else (
-    call :CheckFail "VNC block rule not found"
+    call :CheckPass "No catch-all VNC block rule"
 )
 
 goto :eof

@@ -71,6 +71,16 @@ if (-not $VncPassword) {
     })
 }
 
+# Persist the password NOW, before any step that can kill this session. The
+# firewall step re-scopes sshd to the tailnet, which severs a non-tailnet
+# remote shell mid-run - the closing banner never reaches the operator and the
+# password survives only as a DES blob in the registry.
+$CredentialsFile = 'C:\provision\output\credentials.txt'
+New-Item -ItemType Directory -Path (Split-Path $CredentialsFile) -Force | Out-Null
+"VNC password: $VncPassword" | Set-Content -Path $CredentialsFile -Encoding ASCII
+icacls $CredentialsFile /inheritance:r /grant:r Administrators:F SYSTEM:F | Out-Null
+Write-Ok "VNC password saved to $CredentialsFile"
+
 Write-Host ""
 Write-Host "======================================" -ForegroundColor White
 Write-Host " Bootstrap Remote Access" -ForegroundColor White
@@ -183,7 +193,11 @@ Write-Ok "VNC server running on port $VncPort"
 # == 3. Firewall ======================================================
 Write-Step "Configuring firewall..."
 
-# Remove stale VNC rules
+# Remove stale VNC rules. FwRuleVncBlock is a legacy any-source block: Windows
+# evaluates block rules BEFORE allow rules, so it nullified the allow below and
+# made VNC unreachable even over Tailscale (proven live 2026-08-04). Default
+# inbound is BlockInbound on every profile, so the scoped allow rule alone is
+# the intended posture - the block rule is deleted, never recreated.
 foreach ($name in @($FwRuleVncAllow, $FwRuleVncBlock)) {
     Remove-NetFirewallRule -Name $name -ErrorAction SilentlyContinue
 }
@@ -193,16 +207,14 @@ New-NetFirewallRule -Name $FwRuleVncAllow -DisplayName $FwRuleVncAllow `
     -Direction Inbound -Protocol TCP -LocalPort $VncPort `
     -RemoteAddress $TailscaleSubnet -Action Allow -Profile Any | Out-Null
 
-# Block VNC from everywhere else
-New-NetFirewallRule -Name $FwRuleVncBlock -DisplayName $FwRuleVncBlock `
-    -Direction Inbound -Protocol TCP -LocalPort $VncPort `
-    -Action Block -Profile Any | Out-Null
-
-# Restrict SSH to Tailscale subnet (not left wide open)
+# Restrict SSH to Tailscale subnet (not left wide open). NB: this cuts any
+# SSH session that arrived over a non-tailnet path - run locally or over the
+# tailnet. SSH_EXTRA_ALLOW widens the scope for harness/LAN access.
 $sshdRule = Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue
 if ($sshdRule) {
-    Set-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -Profile Any -RemoteAddress $TailscaleSubnet
-    Write-Ok "SSH firewall rule restricted to Tailscale subnet"
+    $sshScope = if ($env:SSH_EXTRA_ALLOW) { @($TailscaleSubnet, $env:SSH_EXTRA_ALLOW) } else { $TailscaleSubnet }
+    Set-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -Profile Any -RemoteAddress $sshScope
+    Write-Ok "SSH firewall rule restricted to: $($sshScope -join ', ')"
 }
 
 Write-Ok "VNC allowed from Tailscale only ($TailscaleSubnet)"
@@ -245,5 +257,6 @@ if ($orphaned) {
     Write-Host "  ** Reboot needed to clear duplicate lock screen tiles **" -ForegroundColor Yellow
     Write-Host ""
 }
+Write-Host "  Also saved to: $CredentialsFile" -ForegroundColor Yellow
 Write-Host "  SAVE THE VNC PASSWORD - it won't be shown again." -ForegroundColor Yellow
 Write-Host ""

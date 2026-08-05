@@ -152,14 +152,15 @@ if errorlevel 1 (
 )
 call "%LOG%" success "Created rule: %FW_RULE_VNC_ALLOW%"
 
-:: Rule 2: Block VNC from everywhere else
-call "%LOG%" debug "Creating block rule for all other sources..."
-netsh advfirewall firewall add rule name="%FW_RULE_VNC_BLOCK%" dir=in action=block protocol=tcp localport=%VNC_PORT% profile=any description="Block VNC connections from non-Tailscale sources" enable=yes >nul 2>&1
-if errorlevel 1 (
-    call "%LOG%" error "Failed to create VNC block rule"
-    exit /b 1
-)
-call "%LOG%" success "Created rule: %FW_RULE_VNC_BLOCK%"
+:: No catch-all block rule on %VNC_PORT%. Windows Firewall evaluates block
+:: rules BEFORE allow rules, so an any-source block nullifies the Tailscale
+:: allow above and VNC becomes unreachable from everywhere - proven live
+:: 2026-08-04 (RFB connect timed out until the block rule was disabled).
+:: Default inbound is already BlockInbound on all profiles, so the scoped
+:: allow rule alone yields exactly the intended posture. Delete the rule if
+:: an earlier run left one behind.
+netsh advfirewall firewall delete rule name="%FW_RULE_VNC_BLOCK%" >nul 2>&1
+if %ERRORLEVEL% EQU 0 call "%LOG%" info "Removed legacy %FW_RULE_VNC_BLOCK% rule [blocked Tailscale VNC]"
 
 :: Rule 3: SSH locked to the same scope - :RemoveFirewallRules deleted the
 :: SSH rules, so they MUST be re-created here or SSH is left with no allow
@@ -223,18 +224,14 @@ if errorlevel 1 (
     )
 )
 
+:: The catch-all block rule must NOT exist - it out-prioritizes the allow
+:: rule and severs VNC over Tailscale
 netsh advfirewall firewall show rule name="%FW_RULE_VNC_BLOCK%" >nul 2>&1
-if errorlevel 1 (
-    call "%LOG%" error "Block rule not found: %FW_RULE_VNC_BLOCK%"
+if %ERRORLEVEL% EQU 0 (
+    call "%LOG%" error "Legacy %FW_RULE_VNC_BLOCK% rule present - blocks Tailscale VNC"
     set "VERIFY_PASSED=0"
 ) else (
-    netsh advfirewall firewall show rule name="%FW_RULE_VNC_BLOCK%" | findstr /i "Enabled.*Yes" >nul 2>&1
-    if errorlevel 1 (
-        call "%LOG%" error "Block rule exists but is disabled: %FW_RULE_VNC_BLOCK%"
-        set "VERIFY_PASSED=0"
-    ) else (
-        call "%LOG%" debug "Block rule verified: enabled"
-    )
+    call "%LOG%" debug "No catch-all block rule: OK"
 )
 
 netsh advfirewall show allprofiles state | findstr "ON" >nul 2>&1
