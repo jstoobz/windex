@@ -68,6 +68,12 @@ BLOCK: TCP 5900 from all other sources
 - Mix of letters, numbers, special characters
 - Stored in `output/credentials.txt`
 
+**Effective strength:** RFB's VncAuth truncates to 8 characters, so only the
+first 8 are significant (~47 bits from the generated alphabet, not ~94). This
+is adequate because port 5900 accepts connections from the tailnet only — it is
+not an internet-facing secret. Do not treat the 16-character string as the
+security boundary; the firewall scope is.
+
 **Recommendations:**
 - Delete credentials file after noting password
 - Store password in secure password manager
@@ -116,6 +122,42 @@ BLOCK: TCP 5900 from all other sources
 2. Set expiration (24 hours recommended)
 3. Don't embed in scripts long-term
 4. Rotate keys regularly
+
+**Automation keys need different settings than deployment keys.** A test
+harness enrolls a fresh throwaway node on every run, so it needs
+**reusable + ephemeral + pre-approved**:
+
+| Setting | Why |
+|---|---|
+| Reusable | One key serves many runs |
+| Ephemeral | Nodes self-delete when they go offline, so the tailnet doesn't accumulate dead entries |
+| Pre-approved | Without it, every run enrolls a node that holds an IP but has a **blocked data plane** — guest-local checks still pass, so the run reports green while the node is unusable |
+
+**Contain a leaked automation key with a tag, not by withholding approval.**
+Declining pre-approval breaks the automation without adding protection — the
+key still enrolls nodes, they are just unusable. Scoping the key to an ACL tag
+that grants nothing means a stolen key produces a node that connects and can
+reach nothing:
+
+```jsonc
+// tailnet policy file
+"tagOwners": {
+  "tag:provisioning-test": ["autogroup:admin"],
+},
+"acls": [
+  // no rule grants tag:provisioning-test access to anything;
+  // default-deny leaves it isolated
+  {
+    "action": "accept",
+    "src":    ["autogroup:member"],
+    "dst":    ["tag:provisioned-endpoint:5900,22"],
+  },
+],
+```
+
+Mint the harness key with `--advertise-tags=tag:provisioning-test`. Tag
+provisioned endpoints separately so remote-support access stays explicit and
+auditable rather than relying on subnet-wide reachability.
 
 ## Network Security
 
